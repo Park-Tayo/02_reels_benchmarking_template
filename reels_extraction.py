@@ -245,3 +245,50 @@ def process_transcript_and_caption(transcript, caption, video_analysis):
             "transcript": transcript,
             "caption": caption
         }
+
+@timer_decorator
+def download_video(url):
+    """Instagram 릴스 비디오를 다운로드합니다."""
+    try:
+        L = instaloader.Instaloader()
+        shortcode = url.split("/p/")[1].strip("/")
+        post = instaloader.Post.from_shortcode(L.context, shortcode)
+        
+        if not post.is_video:
+            print("⚠️ 이 게시물은 비디오가 아닙니다.")
+            return None
+            
+        video_url = post.video_url
+        if not video_url:
+            print("⚠️ 비디오 URL을 가져올 수 없습니다.")
+            return None
+            
+        # 임시 파일 생성
+        temp_video = tempfile.NamedTemporaryFile(suffix='.mp4', delete=False)
+        
+        # 비디오 다운로드
+        print("📥 비디오 다운로드 중...")
+        response = requests.get(video_url, stream=True)
+        total_size = int(response.headers.get('content-length', 0))
+        
+        with open(temp_video.name, 'wb') as video_file:
+            if total_size == 0:
+                video_file.write(response.content)
+            else:
+                downloaded = 0
+                for data in response.iter_content(chunk_size=4096):
+                    downloaded += len(data)
+                    video_file.write(data)
+                    done = int(50 * downloaded / total_size)
+                    if done % 5 == 0:  # 진행률 업데이트 빈도 조절
+                        print(f"\r💫 다운로드 진행률: [{'=' * done}{'.' * (50-done)}] {downloaded}/{total_size} bytes", end='')
+        
+        print("\n✅ 비디오 다운로드 완료!")
+        return temp_video.name
+        
+    except instaloader.exceptions.InstaloaderException as e:
+        print(f"⚠️ Instagram 관련 오류: {str(e)}")
+        return None
+    except Exception as e:
+        print(f"⚠️ 예상치 못한 오류: {str(e)}")
+        return None
