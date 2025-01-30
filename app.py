@@ -11,6 +11,7 @@ import requests
 import openai
 import re
 import instaloader
+import time
 
 # .env 파일 로드
 load_dotenv()
@@ -371,7 +372,7 @@ def display_analysis_results(results, reels_info):
     
     # 1. 릴스 정보
     st.subheader("1. 릴스 정보")
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)  # 3열에서 2열로 변경
     
     with col1:
         st.markdown("**기본 정보**")
@@ -384,11 +385,6 @@ def display_analysis_results(results, reels_info):
         st.write(f"• 조회수: {format(reels_info['view_count'], ',')}회")
         st.write(f"• 좋아요: {format(reels_info['likes'], ',')}개")
         st.write(f"• 댓글: {format(reels_info['comments'], ',')}개")
-    
-    with col3:
-        st.markdown("**음악 정보**")
-        st.write(f"• 제목: {reels_info['music_title'] if reels_info.get('music_title') else '없음'}")
-        st.write(f"• 아티스트: {reels_info['music_artist'] if reels_info.get('music_artist') else '없음'}")
     
     # 2. 스크립트와 캡션
     st.subheader("2. 콘텐츠 내용")
@@ -407,24 +403,36 @@ def display_analysis_results(results, reels_info):
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_cached_analysis(url, input_data):
     try:
-        # 스피너 제거 (상위 레벨의 스피너만 사용)
+        start_time = time.time()
+        
         # 1. 영상 다운로드
+        print("[Process] 영상 다운로드 시작")
         video_path = download_video(url)
         if not video_path:
             st.error("영상 다운로드에 실패했습니다. URL을 확인해주세요.")
             return None
+        print(f"[Timer] 영상 다운로드: {time.time() - start_time:.2f}초")
         
-        # 2. 정보 추출 (video_analysis 전달)
+        # 2. 정보 추출
+        print("[Process] 정보 추출 시작")
+        extract_start = time.time()
         reels_info = extract_reels_info(url, input_data['video_analysis'])
         if isinstance(reels_info, str):
             st.error(f"정보 추출 실패: {reels_info}")
             return None
+        print(f"[Timer] 정보 추출: {time.time() - extract_start:.2f}초")
         
         # 3. GPT-4 분석
+        print("[Process] GPT 분석 시작")
+        gpt_start = time.time()
         analysis = analyze_with_gpt4(reels_info, input_data)
         if "error" in analysis:
             st.error(f"AI 분석 실패: {analysis['error']}")
             return None
+        print(f"[Timer] GPT 분석: {time.time() - gpt_start:.2f}초")
+        
+        total_time = time.time() - start_time
+        print(f"[Timer] 전체 처리 시간: {total_time:.2f}초")
         
         return {
             "analysis": analysis,
