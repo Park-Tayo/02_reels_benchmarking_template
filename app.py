@@ -114,7 +114,7 @@ def create_input_form():
     
     # 2. 내 콘텐츠 정보
     st.header("2. 내 콘텐츠 정보")
-    topic = st.text_input("주제 선정")
+    topic = st.text_area("주제 선정", height=68)
     
     return {
         "url": url,
@@ -129,15 +129,6 @@ def create_input_form():
             "topic": topic
         }
     }
-
-def clean_json_response(response_text):
-    """
-    코드 블록을 제거하고 순수한 JSON 문자열만 반환합니다.
-    """
-    # 코드 블록 제거
-    response_text = re.sub(r'```json\s*', '', response_text)
-    response_text = re.sub(r'```', '', response_text)
-    return response_text.strip()
 
 @st.cache_data(ttl=3600)
 def analyze_with_gpt4(info, input_data):
@@ -303,59 +294,6 @@ def get_cached_analysis(url, input_data):
     except Exception as e:
         st.error(f"처리 중 오류가 발생했습니다: {str(e)}")
         return None
-
-def format_analysis_result(analysis_text):
-    """GPT-4 응답을 구조화된 형식으로 변환합니다."""
-    return {
-        "topic_analysis": {
-            "주제 명확성": {
-                "checked": True,
-                "evidence": [{"source": "transcript", "content": "예시 내용"}]
-            },
-            "타겟 적합성": {
-                "checked": True,
-                "evidence": [{"source": "caption", "content": "예시 내용"}]
-            }
-        },
-        "intro_copy_analysis": {
-            "호기심 유발": {
-                "checked": True,
-                "evidence": [{"source": "transcript", "content": "예시 내용"}]
-            },
-            "핵심 가치 전달": {
-                "checked": True,
-                "evidence": [{"source": "transcript", "content": "예시 내용"}]
-            }
-        },
-        "intro_structure_analysis": {
-            "시각적 임팩트": {
-                "checked": True,
-                "evidence": [{"source": "transcript", "content": "예시 내용"}]
-            },
-            "브랜딩 요소": {
-                "checked": True,
-                "evidence": [{"source": "transcript", "content": "예시 내용"}]
-            }
-        },
-        "content_analysis": {
-            "스토리텔링": {
-                "checked": True,
-                "evidence": [{"source": "transcript", "content": "예시 내용"}]
-            },
-            "정보 전달력": {
-                "checked": True,
-                "evidence": [{"source": "transcript", "content": "예시 내용"}]
-            }
-        },
-        "improvements": [
-            "개선점 1",
-            "개선점 2"
-        ],
-        "application_points": [
-            "적용할 점 1",
-            "적용할 점 2"
-        ]
-    }
 
 def main():
     input_data = create_input_form()
