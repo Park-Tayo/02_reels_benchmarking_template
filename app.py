@@ -131,31 +131,62 @@ def create_input_form():
                         st.session_state.form_data['video_intro_copy'] = st.text_area(
                             "초반 3초 (카피라이팅) 설명",
                             value=st.session_state.form_data['video_intro_copy'],
-                            height=68
+                            height=68,
+                            help="다음 요소들을 고려하여 설명해주세요:\n"
+                                 "1. 구체적 수치 ('월 500만원', '3일 만에' 등)\n"
+                                 "2. 뇌 충격 ('망하는 과정', '실패한 이유' 등)\n"
+                                 "3. 이익/손해 강조 ('놓치면 후회', '꼭 알아야 할' 등)\n"
+                                 "4. 권위 강조 ('현직 대기업 임원', '10년 경력' 등)\n"
+                                 "5. 예시: '현직 인사팀장이 알려주는 연봉 3천 협상법'"
                         )
+                        
                         st.session_state.form_data['video_intro_structure'] = st.text_area(
                             "초반 3초 (영상 구성) 설명",
                             value=st.session_state.form_data['video_intro_structure'],
-                            height=68
+                            height=68,
+                            help="다음 요소들을 고려하여 설명해주세요.:\n"
+                                 "1. 상식 파괴 (예상 밖의 장면)\n"
+                                 "2. 결과 먼저 보여주기 (Before & After)\n"
+                                 "3. 부정적 상황 강조\n"
+                                 "4. 공감 유도 (일상적 고민/불편함)\n"
+                                 "5. 예시: '출근 시간에 편하게 누워서 일하는 직원들 모습'"
                         )
+                        
                         st.session_state.form_data['narration'] = st.text_input(
                             "나레이션 설명",
-                            value=st.session_state.form_data['narration']
+                            value=st.session_state.form_data['narration'],
+                            help="나레이션의 특징과 음질을 설명해주세요:\n"
+                                 "1. 목소리 특징 (성별, 연령대, 톤)\n"
+                                 "2. 말하기 스타일 (전문적/친근한)\n"
+                                 "3. 음질 상태 (노이즈 없는 깨끗한 음질)\n"
+                                 "4. 예시: '20대 여성의 친근한 톤, 깨끗한 마이크 음질'"
                         )
+                        
                         st.session_state.form_data['music'] = st.text_input(
                             "음악 설명",
-                            value=st.session_state.form_data['music']
+                            value=st.session_state.form_data['music'],
+                            help="배경음악의 특징을 설명해주세요:\n"
+                                 "1. 트렌디한 정도 (최신 유행 BGM)\n"
+                                 "2. 영상과의 조화 (리듬감, 분위기)\n"
+                                 "3. 장르 및 템포\n"
+                                 "4. 예시: '트렌디한 K-pop, 영상의 템포와 잘 맞는 리듬'"
                         )
+                        
                         st.session_state.form_data['font'] = st.text_input(
                             "폰트 설명",
-                            value=st.session_state.form_data['font']
+                            value=st.session_state.form_data['font'],
+                            help="화면에 보여지는 텍스트의 시각적 특징을 설명해주세요:\n"
+                                 "1. 폰트 종류 (고딕체, 손글씨체 등)\n"
+                                 "2. 강조 요소 (굵기, 크기, 테두리)\n"
+                                 "3. 가독성 정도\n"
+                                 "4. 예시: '눈에 띄는 굵은 글씨, 흰색 테두리, 노란색 배경'"
                         )
                     # 폼 제출 버튼
                     form_submit = st.form_submit_button("저장 (필수)")
             
             # URL이 입력되고 동영상이 성공적으로 로드된 경우에만 나머지 섹션 표시
             st.header("2. 내 콘텐츠 정보 입력")
-            topic = st.text_area("제작하려는 콘텐츠에 대해 자유롭게 입력하세요", height=68)
+            topic = st.text_area("제작할 콘텐츠에 대해 자유롭게 입력해주세요", height=68)
             
             # 분석 시작 버튼도 여기서 표시
             if st.button("분석 시작"):
