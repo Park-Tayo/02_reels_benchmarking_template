@@ -10,6 +10,7 @@ from api_config import get_api_config
 import requests
 import openai
 import re
+import instaloader
 
 # .env 파일 로드
 load_dotenv()
@@ -66,6 +67,23 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+def get_video_url(url):
+    try:
+        # Instaloader 인스턴스 생성
+        L = instaloader.Instaloader()
+        
+        # URL에서 숏코드 추출
+        shortcode = url.split("/p/")[1].strip("/")
+        
+        # 게시물 정보 가져오기
+        post = instaloader.Post.from_shortcode(L.context, shortcode)
+        
+        # 비디오 URL 반환
+        return post.video_url if post.is_video else None
+        
+    except Exception as e:
+        return None
+
 def create_input_form():
     st.title("릴스 벤치마킹 분석")
     
@@ -73,12 +91,26 @@ def create_input_form():
     st.header("1. 벤치마킹")
     url = st.text_input("URL")
     
-    with st.expander("영상 분석"):
-        video_intro_copy = st.text_area("초반 3초 (카피라이팅) 설명")
-        video_intro_structure = st.text_area("초반 3초 (영상 구성) 설명")
-        narration = st.text_area("나레이션 설명")
-        music = st.text_area("음악 설명")
-        font = st.text_area("폰트 설명")
+    if url:  # URL이 입력되었을 때만 표시
+        video_url = get_video_url(url)
+        if video_url:
+            col1, col2 = st.columns([1, 1])  # 1:1 비율로 컬럼 분할
+            
+            with col1:
+                try:
+                    st.video(video_url)
+                except:
+                    st.error("동영상을 불러올 수 없습니다.")
+            
+            with col2:
+                with st.expander("영상 분석", expanded=True):  # 자동으로 펼쳐진 상태
+                    video_intro_copy = st.text_area("초반 3초 (카피라이팅) 설명", height=68)
+                    video_intro_structure = st.text_area("초반 3초 (영상 구성) 설명", height=68)
+                    narration = st.text_area("나레이션 설명", height=68)
+                    music = st.text_area("음악 설명", height=68)
+                    font = st.text_area("폰트 설명", height=68)
+        else:
+            st.error("Instagram URL에서 동영상을 찾을 수 없습니다.")
     
     # 2. 내 콘텐츠 정보
     st.header("2. 내 콘텐츠 정보")
@@ -87,11 +119,11 @@ def create_input_form():
     return {
         "url": url,
         "video_analysis": {
-            "intro_copy": video_intro_copy,
-            "intro_structure": video_intro_structure,
-            "narration": narration,
-            "music": music,
-            "font": font
+            "intro_copy": video_intro_copy if 'video_intro_copy' in locals() else "",
+            "intro_structure": video_intro_structure if 'video_intro_structure' in locals() else "",
+            "narration": narration if 'narration' in locals() else "",
+            "music": music if 'music' in locals() else "",
+            "font": font if 'font' in locals() else ""
         },
         "content_info": {
             "topic": topic
@@ -147,10 +179,10 @@ def analyze_with_gpt4(info, input_data):
                 - ✅/❌ **제안**: 스크립트/캡션 중 해당 내용
 
                 # 4. 개선할 점:
-                - 
+                -❌**(항목명)**: 개선할 점 설명 추가 ex. 스크립트/캡션 예시
 
                 # 5. 적용할 점:
-                - 
+                - ✅**(항목명)**: 적용할 점 설명 추가 ex. 스크립트/캡션 중 해당 내용
                 """
             },
             {
