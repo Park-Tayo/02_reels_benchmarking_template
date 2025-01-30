@@ -188,31 +188,32 @@ def create_input_form():
             st.header("2. 내 콘텐츠 정보 입력")
             topic = st.text_area("제작할 콘텐츠에 대해 자유롭게 입력해주세요", height=68)
             
-            # 분석 시작 버튼도 여기서 표시
+            # 분석 시작 버튼
             if st.button("분석 시작"):
                 if not url:
                     st.warning("URL을 입력해주세요.")
                     return None
+                
+                with st.spinner("분석 중... (약 1분 30초 소요)"):
+                    # 캐시된 결과 확인
+                    results = get_cached_analysis(url, {
+                        "url": url,
+                        "video_analysis": {
+                            "intro_copy": st.session_state.form_data['video_intro_copy'],
+                            "intro_structure": st.session_state.form_data['video_intro_structure'],
+                            "narration": st.session_state.form_data['narration'],
+                            "music": st.session_state.form_data['music'],
+                            "font": st.session_state.form_data['font']
+                        },
+                        "content_info": {
+                            "topic": topic
+                        }
+                    })
                     
-                # 캐시된 결과 확인
-                results = get_cached_analysis(url, {
-                    "url": url,
-                    "video_analysis": {
-                        "intro_copy": st.session_state.form_data['video_intro_copy'],
-                        "intro_structure": st.session_state.form_data['video_intro_structure'],
-                        "narration": st.session_state.form_data['narration'],
-                        "music": st.session_state.form_data['music'],
-                        "font": st.session_state.form_data['font']
-                    },
-                    "content_info": {
-                        "topic": topic
-                    }
-                })
-                
-                if results:
-                    display_analysis_results(results["analysis"], results["reels_info"])
-                
-                return None
+                    if results:
+                        display_analysis_results(results["analysis"], results["reels_info"])
+                    
+                    return None
         else:
             st.error("Instagram URL에서 동영상을 찾을 수 없습니다.")
     
@@ -240,10 +241,13 @@ def analyze_with_gpt4(info, input_data):
             {
                 "role": "system",
                 "content": """
-                당신은 릴스 분석 전문가입니다. 다음 형식으로 분석 결과를 제공해주세요. 각 항목에 대해 ✅/❌를 표시하고, 그 판단의 근거가 되는 스크립트나 캡션의 구체적인 내용을 인용해주세요. 단, 모수란 이 내용이 얼마나 많은 사람들의 관심을 끌 수 있는지에 대한 것입니다.:
+                당신은 릴스 분석 전문가입니다. 다음 형식으로 분석 결과를 제공해주세요. 
+                각 항목에 대해 ✅/❌를 표시하고, 그 판단의 근거가 되는 스크립트나 캡션의 구체적인 내용을 인용해주세요. 
+                여기서 모수란 이 내용이 얼마나 많은 사람들의 관심을 끌 수 있는지에 대한 것입니다.
+                문제 해결이란 시청자가 갖고 있는 문제를 해결해줄 수 있는지에 대한 것입니다:
 
                 # 1. 주제: 
-                - (이 영상의 주제에 대한 내용)
+                - **(이 영상의 주제에 대한 내용)**
                 - ✅/❌ **공유 및 저장**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **모수**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **문제해결**: 스크립트/캡션 중 해당 내용
@@ -252,21 +256,21 @@ def analyze_with_gpt4(info, input_data):
 
                 # 2. 초반 3초
                 ## 카피라이팅 :
-                - (이 영상의 초반 3초 카피라이팅에 대한 내용)
+                - **(이 영상의 초반 3초 카피라이팅에 대한 내용)**
                 - ✅/❌ **구체적 수치**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **뇌 충격**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **이익, 손해 강조**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **권위 강조**: 스크립트/캡션 중 해당 내용
 
                 ## 영상 구성 : 
-                - (이 영상의 초반 3초 영상 구성에 대한 내용)
+                - **(이 영상의 초반 3초 영상 구성에 대한 내용)**
                 - ✅/❌ **상식 파괴**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **결과 먼저**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **부정 강조**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **공감 유도**: 스크립트/캡션 중 해당 내용
 
                 # 3. 내용 구성: 
-                - (이 영상의 전체적인 내용 구성에 대한 내용)
+                - **(이 영상의 스크립트/캡션의 전체적인 내용 구성에 대한 내용)**
                 - ✅/❌ **문제해결**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **호기심 유발**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **행동 유도**: 스크립트/캡션 중 해당 내용
@@ -365,16 +369,32 @@ def analyze_with_gpt4(info, input_data):
 def display_analysis_results(results, reels_info):
     st.header("분석 결과")
     
-    # 1. 동영상 미리보기
-    st.subheader("1. 릴스 영상")
-    st.video(reels_info["video_url"])
+    # 1. 릴스 정보
+    st.subheader("1. 릴스 정보")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**기본 정보**")
+        st.write(f"• 업로드 날짜: {reels_info['date']}")
+        st.write(f"• 계정: @{reels_info['owner']}")
+        st.write(f"• 영상 길이: {reels_info['video_duration']:.1f}초")
+    
+    with col2:
+        st.markdown("**시청 반응**")
+        st.write(f"• 조회수: {format(reels_info['view_count'], ',')}회")
+        st.write(f"• 좋아요: {format(reels_info['likes'], ',')}개")
+        st.write(f"• 댓글: {format(reels_info['comments'], ',')}개")
+    
+    st.markdown("**음악 정보**")
+    st.write(f"• 제목: {reels_info['music_title'] if reels_info.get('music_title') else '없음'}")
+    st.write(f"• 아티스트: {reels_info['music_artist'] if reels_info.get('music_artist') else '없음'}")
     
     # 2. 스크립트와 캡션
     st.subheader("2. 콘텐츠 내용")
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("**스크립트**")
-        st.write(reels_info["refined_transcript"])  # 무조건 정제된 스크립트 표시
+        st.write(reels_info["refined_transcript"])
     with col2:
         st.markdown("**캡션**")
         st.write(reels_info["caption"])
@@ -383,36 +403,77 @@ def display_analysis_results(results, reels_info):
     st.subheader("3. 벤치마킹 템플릿 분석")
     st.markdown(results)
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_cached_analysis(url, input_data):
     try:
-        with st.spinner('영상 분석 중... (최대 2분 소요)'):
-            # 1. 영상 다운로드
-            video_path = download_video(url)
-            if not video_path:
-                st.error("영상 다운로드에 실패했습니다. URL을 확인해주세요.")
-                return None
-            
-            # 2. 정보 추출 (video_analysis 전달)
-            reels_info = extract_reels_info(url, input_data['video_analysis'])
-            if isinstance(reels_info, str):
-                st.error(f"정보 추출 실패: {reels_info}")
-                return None
-            
-            # 3. GPT-4 분석
-            analysis = analyze_with_gpt4(reels_info, input_data)
-            if "error" in analysis:
-                st.error(f"AI 분석 실패: {analysis['error']}")
-                return None
-            
-            return {
-                "analysis": analysis,
-                "reels_info": reels_info
-            }
-            
+        # 스피너 제거 (상위 레벨의 스피너만 사용)
+        # 1. 영상 다운로드
+        video_path = download_video(url)
+        if not video_path:
+            st.error("영상 다운로드에 실패했습니다. URL을 확인해주세요.")
+            return None
+        
+        # 2. 정보 추출 (video_analysis 전달)
+        reels_info = extract_reels_info(url, input_data['video_analysis'])
+        if isinstance(reels_info, str):
+            st.error(f"정보 추출 실패: {reels_info}")
+            return None
+        
+        # 3. GPT-4 분석
+        analysis = analyze_with_gpt4(reels_info, input_data)
+        if "error" in analysis:
+            st.error(f"AI 분석 실패: {analysis['error']}")
+            return None
+        
+        return {
+            "analysis": analysis,
+            "reels_info": reels_info
+        }
+        
     except Exception as e:
         st.error(f"처리 중 오류가 발생했습니다: {str(e)}")
         return None
+
+def get_reels_structure():
+    return {
+        "1. 도입부 (3초)": {
+            "핵심요소": [
+                "구체적 수치 활용",
+                "상식을 깨는 내용",
+                "결과 먼저 보여주기",
+                "이익/손해 강조",
+                "권위 요소 활용"
+            ],
+            "목적": "시청자의 즉각적인 관심 유도"
+        },
+        
+        "2. 전개부": {
+            "주요_구조": [
+                "문제 해결형",
+                "호기심 유발형", 
+                "스토리텔링형"
+            ],
+            "필수_요소": [
+                "고품질 영상/음향",
+                "트렌디한 BGM",
+                "명확한 메시지 전달"
+            ]
+        },
+        
+        "3. 마무리": {
+            "행동유도": [
+                "저장 유도",
+                "공유 유도",
+                "팔로우 제안"
+            ],
+            "캡션최적화": [
+                "첫 줄 후킹",
+                "단락 구분",
+                "쉬운 표현 사용",
+                "구체적 수치/권위 포함"
+            ]
+        }
+    }
 
 def main():
     input_data = create_input_form()
