@@ -1,0 +1,23 @@
+# API 키
+.env
+secrets.toml
+
+# 캐시 파일들
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 환경 설정
+.env
+.venv
+env/
+venv/
+ENV/
+
+# 로그 파일
+*.log
+
+# 임시 파일들
+temp/
+tmp/
+downloads/ 
