@@ -104,7 +104,7 @@ def refine_transcript(transcript, caption, video_analysis):
         print(f"스크립트 정제 중 오류 발생: {e}")
         return transcript
 
-def extract_reels_info(url):
+def extract_reels_info(url, video_analysis=None):
     # Instaloader 인스턴스 생성
     L = instaloader.Instaloader()
     
@@ -123,7 +123,7 @@ def extract_reels_info(url):
         video_url = post.video_url
         video_path = download_video(video_url)  # 비디오 다운로드
         
-        # 스크립트 추출 (다운로드된 비디오 파일 사용)
+        # 스크립트 추출
         transcript = transcribe_video(video_path) if video_path else ""
         
         # 임시 파일 삭제
@@ -143,8 +143,7 @@ def extract_reels_info(url):
         info = {
             'shortcode': shortcode,
             'date': post.date.strftime('%Y-%m-%d %H:%M:%S'),
-            'transcript': transcript,  # 원본 스크립트 저장
-            'raw_transcript': transcript,  # 원본 스크립트 별도 보관
+            'raw_transcript': transcript,  # 원본 스크립트 저장
             'caption': post.caption if post.caption else "",
             'view_count': post.video_view_count if hasattr(post, 'video_view_count') else 0,
             'video_duration': post.video_duration if hasattr(post, 'video_duration') else 0,
@@ -155,6 +154,14 @@ def extract_reels_info(url):
             'owner': post.owner_username,
             'video_url': video_url
         }
+        
+        # 스크립트 정제 수행
+        refined_transcript = refine_transcript(
+            transcript,
+            info['caption'],
+            video_analysis or {}
+        )
+        info['refined_transcript'] = refined_transcript
         
         return info
         

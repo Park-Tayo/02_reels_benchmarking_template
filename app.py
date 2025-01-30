@@ -207,7 +207,7 @@ def analyze_with_gpt4(info, input_data):
                 "content": f"""
                 다음 릴스를 분석하고, 입력된 주제에 맞게 벤치마킹 기획을 해주세요:
                 
-                스크립트: {info['transcript']}
+                스크립트: {info['refined_transcript']}
                 캡션: {info['caption']}
                 
                 사용자 입력 정보:
@@ -249,7 +249,7 @@ def display_analysis_results(results, reels_info):
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("**스크립트**")
-        st.write(reels_info["transcript"])
+        st.write(reels_info["refined_transcript"])  # 무조건 정제된 스크립트 표시
     with col2:
         st.markdown("**캡션**")
         st.write(reels_info["caption"])
@@ -268,8 +268,8 @@ def get_cached_analysis(url, input_data):
                 st.error("영상 다운로드에 실패했습니다. URL을 확인해주세요.")
                 return None
             
-            # 2. 정보 추출
-            reels_info = extract_reels_info(url)
+            # 2. 정보 추출 (video_analysis 전달)
+            reels_info = extract_reels_info(url, input_data['video_analysis'])
             if isinstance(reels_info, str):
                 st.error(f"정보 추출 실패: {reels_info}")
                 return None
