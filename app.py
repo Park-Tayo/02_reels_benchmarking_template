@@ -87,18 +87,36 @@ def get_video_url(url):
 def create_input_form():
     st.title("릴스 벤치마킹 분석")
     
+    # URL을 세션 상태로 관리
+    if 'url' not in st.session_state:
+        st.session_state.url = ''
+    
     # 1. 벤치마킹 섹션
-    st.header("1. 벤치마킹")
-    url = st.text_input("릴스 URL 입력 후 엔터를 누르세요")
+    st.header("1. 벤치마킹 정보 입력")
+    url = st.text_input("릴스 URL 입력 후 엔터를 누르세요", value=st.session_state.url)
+    
+    # URL이 변경되면 세션 상태 업데이트
+    if url != st.session_state.url:
+        st.session_state.url = url
     
     # URL 입력 버튼 추가
     url_submit = st.button("URL 입력")
     
+    # 폼 데이터를 세션 상태로 관리
+    if 'form_data' not in st.session_state:
+        st.session_state.form_data = {
+            'video_intro_copy': '',
+            'video_intro_structure': '',
+            'narration': '',
+            'music': '',
+            'font': ''
+        }
+    
     # URL이 입력되었거나 URL 입력 버튼이 클릭되었을 때 처리
-    if url and (url_submit or True):  # True 조건은 엔터키 입력을 위한 것
+    if url and (url_submit or True):
         video_url = get_video_url(url)
         if video_url:
-            col1, col2 = st.columns([1, 1])  # 1:1 비율로 컬럼 분할
+            col1, col2 = st.columns([1, 1])
             
             with col1:
                 try:
@@ -107,16 +125,37 @@ def create_input_form():
                     st.error("동영상을 불러올 수 없습니다.")
             
             with col2:
-                with st.expander("영상 분석", expanded=True):  # 자동으로 펼쳐진 상태
-                    video_intro_copy = st.text_area("초반 3초 (카피라이팅) 설명", height=68)
-                    video_intro_structure = st.text_area("초반 3초 (영상 구성) 설명", height=68)
-                    narration = st.text_area("나레이션 설명", height=68)
-                    music = st.text_area("음악 설명", height=68)
-                    font = st.text_area("폰트 설명", height=68)
+                # 폼 추가
+                with st.form(key='video_analysis_form'):
+                    with st.expander("영상 분석", expanded=True):
+                        st.session_state.form_data['video_intro_copy'] = st.text_area(
+                            "초반 3초 (카피라이팅) 설명",
+                            value=st.session_state.form_data['video_intro_copy'],
+                            height=68
+                        )
+                        st.session_state.form_data['video_intro_structure'] = st.text_area(
+                            "초반 3초 (영상 구성) 설명",
+                            value=st.session_state.form_data['video_intro_structure'],
+                            height=68
+                        )
+                        st.session_state.form_data['narration'] = st.text_input(
+                            "나레이션 설명",
+                            value=st.session_state.form_data['narration']
+                        )
+                        st.session_state.form_data['music'] = st.text_input(
+                            "음악 설명",
+                            value=st.session_state.form_data['music']
+                        )
+                        st.session_state.form_data['font'] = st.text_input(
+                            "폰트 설명",
+                            value=st.session_state.form_data['font']
+                        )
+                    # 폼 제출 버튼
+                    form_submit = st.form_submit_button("저장 (필수)")
             
             # URL이 입력되고 동영상이 성공적으로 로드된 경우에만 나머지 섹션 표시
-            st.header("2. 내 콘텐츠 정보")
-            topic = st.text_area("주제 선정", height=68)
+            st.header("2. 내 콘텐츠 정보 입력")
+            topic = st.text_area("제작하려는 콘텐츠에 대해 자유롭게 입력하세요", height=68)
             
             # 분석 시작 버튼도 여기서 표시
             if st.button("분석 시작"):
@@ -128,11 +167,11 @@ def create_input_form():
                 results = get_cached_analysis(url, {
                     "url": url,
                     "video_analysis": {
-                        "intro_copy": video_intro_copy if 'video_intro_copy' in locals() else "",
-                        "intro_structure": video_intro_structure if 'video_intro_structure' in locals() else "",
-                        "narration": narration if 'narration' in locals() else "",
-                        "music": music if 'music' in locals() else "",
-                        "font": font if 'font' in locals() else ""
+                        "intro_copy": st.session_state.form_data['video_intro_copy'],
+                        "intro_structure": st.session_state.form_data['video_intro_structure'],
+                        "narration": st.session_state.form_data['narration'],
+                        "music": st.session_state.form_data['music'],
+                        "font": st.session_state.form_data['font']
                     },
                     "content_info": {
                         "topic": topic
@@ -149,11 +188,11 @@ def create_input_form():
     return {
         "url": url,
         "video_analysis": {
-            "intro_copy": video_intro_copy if 'video_intro_copy' in locals() else "",
-            "intro_structure": video_intro_structure if 'video_intro_structure' in locals() else "",
-            "narration": narration if 'narration' in locals() else "",
-            "music": music if 'music' in locals() else "",
-            "font": font if 'font' in locals() else ""
+            "intro_copy": st.session_state.form_data['video_intro_copy'],
+            "intro_structure": st.session_state.form_data['video_intro_structure'],
+            "narration": st.session_state.form_data['narration'],
+            "music": st.session_state.form_data['music'],
+            "font": st.session_state.form_data['font']
         },
         "content_info": {
             "topic": topic if 'topic' in locals() else ""
@@ -170,29 +209,33 @@ def analyze_with_gpt4(info, input_data):
             {
                 "role": "system",
                 "content": """
-                당신은 릴스 분석 전문가입니다. 다음 형식으로 분석 결과를 제공해주세요. 각 항목에 대해 ✅/❌를 표시하고, 그 판단의 근거가 되는 스크립트나 캡션의 구체적인 내용을 인용해주세요:
+                당신은 릴스 분석 전문가입니다. 다음 형식으로 분석 결과를 제공해주세요. 각 항목에 대해 ✅/❌를 표시하고, 그 판단의 근거가 되는 스크립트나 캡션의 구체적인 내용을 인용해주세요. 단, 모수란 이 내용이 얼마나 많은 사람들의 관심을 끌 수 있는지에 대한 것입니다.:
 
-                # 1. 주제:
+                # 1. 주제: 
+                - (이 영상의 주제에 대한 내용)
                 - ✅/❌ **공유 및 저장**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **모수**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **문제해결**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **욕망충족**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **흥미유발**: 스크립트/캡션 중 해당 내용
 
-                # 2. 초반 3초:
-                ## 카피라이팅
+                # 2. 초반 3초
+                ## 카피라이팅 :
+                - (이 영상의 초반 3초 카피라이팅에 대한 내용)
                 - ✅/❌ **구체적 수치**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **뇌 충격**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **이익, 손해 강조**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **권위 강조**: 스크립트/캡션 중 해당 내용
 
-                ## 영상 구성
+                ## 영상 구성 : 
+                - (이 영상의 초반 3초 영상 구성에 대한 내용)
                 - ✅/❌ **상식 파괴**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **결과 먼저**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **부정 강조**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **공감 유도**: 스크립트/캡션 중 해당 내용
 
-                # 3. 내용 구성:
+                # 3. 내용 구성: 
+                - (이 영상의 전체적인 내용 구성에 대한 내용)
                 - ✅/❌ **문제해결**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **호기심 유발**: 스크립트/캡션 중 해당 내용
                 - ✅/❌ **행동 유도**: 스크립트/캡션 중 해당 내용
@@ -200,8 +243,8 @@ def analyze_with_gpt4(info, input_data):
                 - ✅/❌ **제안**: 스크립트/캡션 중 해당 내용
 
                 # 4. 개선할 점:
-                -❌**(항목명)**: 개선할 점 설명 추가 ex. 스크립트/캡션 예시
-
+                - ❌**(항목명)**: 개선할 점 설명 추가 ex. 스크립트/캡션 예시
+                
                 # 5. 적용할 점:
                 - ✅**(항목명)**: 적용할 점 설명 추가 ex. 스크립트/캡션 중 해당 내용
 
@@ -226,15 +269,30 @@ def analyze_with_gpt4(info, input_data):
                 이모지, 해시태그 스타일도 원본과 동일하게 구성]
 
                 ## 영상 기획:
-                원본 영상의 구성을 최대한 유사하게 벤치마킹했습니다.
+                원본 영상의 구성을 최대한 유사하게 벤치마킹하되, 다음 요소들을 추가/보완했습니다:
+
                 1. **도입부** (3초):
-                   [원본의 도입부 구성을 그대로 차용]
+                   - 뇌 충격을 주는 구체적 수치 활용 
+                   - 상식을 깨는 내용으로 시작
+                   - 결과를 먼저 보여주는 방식 적용
+                   
                 2. **전개**:
-                   [원본의 전개 방식을 그대로 차용]
+                   - 문제 해결형 구조 적용:
+                     * 명확한 문제 제시 
+                     * 구체적인 해결책 제시
+                   - 시청 지속성 확보:
+                     * 나레이션과 영상의 일치성 유지
+                     * 트렌디한 BGM 활용
+                     * 고화질 영상 품질 유지
+                   
                 3. **마무리**:
-                   [원본의 마무리 방식을 그대로 차용]
-                
-                ※ 위 기획은 체크된 항목들({체크된 항목들 나열})을 모두 반영했습니다.
+                   - 행동 유도 요소 포함:
+                     * 저장/공유 유도 멘트
+                     * 팔로우 제안
+                   - 캡션 최적화:
+                     * 첫 줄 후킹
+                     * 단락 구분으로 가독성 확보
+                     * 구체적 수치/권위 요소 포함
                 ''' if input_data["content_info"]["topic"] else "주제가 입력되지 않았습니다. 구체적인 기획을 위해 주제를 입력해주세요."}
                 """
             },
