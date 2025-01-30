@@ -7,6 +7,8 @@ import requests
 import tempfile
 import os
 import subprocess
+import openai
+from api_config import get_api_config
 
 # 절대 경로 설정
 BASE_DIR = Path("D:/cursor_ai/02_reels_benchmarking_template")
@@ -62,6 +64,46 @@ def transcribe_video(video_path):
         print(f"전사 오류: {e}")
         return ""
 
+def refine_transcript(transcript, caption, video_analysis):
+    """
+    GPT를 사용하여 추출된 스크립트를 정제합니다.
+    """
+    try:
+        api_config = get_api_config()
+        client = openai.OpenAI(api_key=api_config["api_key"])
+        
+        prompt = f"""
+        다음은 영상에서 추출된 스크립트입니다. 캡션과 영상 분석 내용을 참고하여 스크립트의 오탈자와 잘못 인식된 단어들을 수정해주세요.
+        
+        원본 스크립트:
+        {transcript}
+        
+        참고할 캡션:
+        {caption}
+        
+        영상 분석 내용:
+        - 초반 3초 (카피라이팅): {video_analysis.get('intro_copy', '')}
+        - 초반 3초 (영상 구성): {video_analysis.get('intro_structure', '')}
+        - 나레이션: {video_analysis.get('narration', '')}
+        
+        위 내용을 참고하여 스크립트를 자연스럽게 수정해주세요. 수정된 스크립트만 반환해주세요.
+        """
+        
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "당신은 전문 영상 스크립트 교정 전문가입니다."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            max_tokens=1000
+        )
+        
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"스크립트 정제 중 오류 발생: {e}")
+        return transcript
+
 def extract_reels_info(url):
     # Instaloader 인스턴스 생성
     L = instaloader.Instaloader()
@@ -101,7 +143,8 @@ def extract_reels_info(url):
         info = {
             'shortcode': shortcode,
             'date': post.date.strftime('%Y-%m-%d %H:%M:%S'),
-            'transcript': transcript,  # 추출된 스크립트
+            'transcript': transcript,  # 원본 스크립트 저장
+            'raw_transcript': transcript,  # 원본 스크립트 별도 보관
             'caption': post.caption if post.caption else "",
             'view_count': post.video_view_count if hasattr(post, 'video_view_count') else 0,
             'video_duration': post.video_duration if hasattr(post, 'video_duration') else 0,

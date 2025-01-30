@@ -89,7 +89,7 @@ def create_input_form():
     
     # 1. 벤치마킹 섹션
     st.header("1. 벤치마킹")
-    url = st.text_input("URL")
+    url = st.text_input("URL 입력 후 엔터를 누르세요")
     
     if url:  # URL이 입력되었을 때만 표시
         video_url = get_video_url(url)
@@ -183,12 +183,29 @@ def analyze_with_gpt4(info, input_data):
 
                 # 5. 적용할 점:
                 - ✅**(항목명)**: 적용할 점 설명 추가 ex. 스크립트/캡션 중 해당 내용
+
+                # 6. 벤치마킹 적용 기획:
+                {f'''
+                입력하신 주제 "{input_data["content_info"]["topic"]}"에 대한 벤치마킹 적용 기획입니다:
+                
+                ## 스크립트 예시:
+                위 분석 내용을 토대로 "{input_data["content_info"]["topic"]}" 주제에 맞게 작성한 스크립트입니다.
+                [스크립트 내용 작성]
+
+                ## 캡션 예시:
+                "{input_data["content_info"]["topic"]}" 주제에 맞게 작성한 캡션입니다.
+                [캡션 내용 작성]
+
+                ## 영상 기획:
+                "{input_data["content_info"]["topic"]}" 주제의 릴스 영상 기획안입니다.
+                [영상 기획 내용 작성]
+                ''' if input_data["content_info"]["topic"] else "주제가 입력되지 않았습니다. 구체적인 기획을 위해 주제를 입력해주세요."}
                 """
             },
             {
                 "role": "user",
                 "content": f"""
-                다음 릴스를 분석해주세요:
+                다음 릴스를 분석하고, 입력된 주제에 맞게 벤치마킹 기획을 해주세요:
                 
                 스크립트: {info['transcript']}
                 캡션: {info['caption']}
@@ -199,7 +216,10 @@ def analyze_with_gpt4(info, input_data):
                 - 나레이션: {input_data['video_analysis']['narration']}
                 - 음악: {input_data['video_analysis']['music']}
                 - 폰트: {input_data['video_analysis']['font']}
-                - 주제: {input_data['content_info']['topic']}
+                
+                벤치마킹할 새로운 주제: {input_data['content_info']['topic']}
+                
+                위 릴스의 장점과 특징을 분석한 후, 새로운 주제에 맞게 벤치마킹하여 구체적인 스크립트, 캡션, 영상 기획을 제시해주세요.
                 """
             }
         ]
