@@ -12,6 +12,7 @@ import openai
 import re
 import instaloader
 import time
+from urllib.parse import urlparse
 
 # .env 파일 로드
 load_dotenv()
@@ -217,13 +218,36 @@ st.markdown("""
     <div class="brand-logo">HANSHIN GROUP</div>
 """, unsafe_allow_html=True)
 
+def normalize_instagram_url(url):
+    """
+    입력된 인스타그램 URL을 '/p/{ID}/' 형식으로 변환합니다.
+    쿼리 파라미터와 기타 불필요한 부분을 제거합니다.
+    """
+    try:
+        from urllib.parse import urlparse
+
+        parsed_url = urlparse(url)
+        path_parts = parsed_url.path.strip('/').split('/')
+
+        if len(path_parts) >= 2:
+            if path_parts[0] in ['reel', 'tv', 'p']:
+                shortcode = path_parts[1]
+                normalized_url = f"https://www.instagram.com/p/{shortcode}/"
+                return normalized_url
+        return url  # 변경이 필요 없는 다른 형식의 URL
+
+    except Exception as e:
+        st.error(f"URL 정규화 중 오류 발생: {str(e)}")
+        return url
+
 def get_video_url(url):
     try:
+        normalized_url = normalize_instagram_url(url)
         # Instaloader 인스턴스 생성
         L = instaloader.Instaloader()
         
         # URL에서 숏코드 추출
-        shortcode = url.split("/p/")[1].strip("/")
+        shortcode = normalized_url.split("/p/")[1].strip("/")
         
         # 게시물 정보 가져오기
         post = instaloader.Post.from_shortcode(L.context, shortcode)
@@ -236,7 +260,7 @@ def get_video_url(url):
 
 def create_input_form():
     # 타이틀 섹션
-    st.markdown('<div class="title-container"><h1>릴스 벤치마킹 분석</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="title-container"><h1>✨ 릴스 벤치마킹 스튜디오</h1></div>', unsafe_allow_html=True)
     
     # 1. 벤치마킹 섹션
     st.markdown("""
