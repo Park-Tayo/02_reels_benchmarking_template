@@ -109,12 +109,38 @@ def create_input_form():
                     narration = st.text_area("나레이션 설명", height=68)
                     music = st.text_area("음악 설명", height=68)
                     font = st.text_area("폰트 설명", height=68)
+            
+            # URL이 입력되고 동영상이 성공적으로 로드된 경우에만 나머지 섹션 표시
+            st.header("2. 내 콘텐츠 정보")
+            topic = st.text_area("주제 선정", height=68)
+            
+            # 분석 시작 버튼도 여기서 표시
+            if st.button("분석 시작"):
+                if not url:
+                    st.warning("URL을 입력해주세요.")
+                    return None
+                    
+                # 캐시된 결과 확인
+                results = get_cached_analysis(url, {
+                    "url": url,
+                    "video_analysis": {
+                        "intro_copy": video_intro_copy if 'video_intro_copy' in locals() else "",
+                        "intro_structure": video_intro_structure if 'video_intro_structure' in locals() else "",
+                        "narration": narration if 'narration' in locals() else "",
+                        "music": music if 'music' in locals() else "",
+                        "font": font if 'font' in locals() else ""
+                    },
+                    "content_info": {
+                        "topic": topic
+                    }
+                })
+                
+                if results:
+                    display_analysis_results(results["analysis"], results["reels_info"])
+                
+                return None
         else:
             st.error("Instagram URL에서 동영상을 찾을 수 없습니다.")
-    
-    # 2. 내 콘텐츠 정보
-    st.header("2. 내 콘텐츠 정보")
-    topic = st.text_area("주제 선정", height=68)
     
     return {
         "url": url,
@@ -126,7 +152,7 @@ def create_input_form():
             "font": font if 'font' in locals() else ""
         },
         "content_info": {
-            "topic": topic
+            "topic": topic if 'topic' in locals() else ""
         }
     }
 
@@ -297,17 +323,6 @@ def get_cached_analysis(url, input_data):
 
 def main():
     input_data = create_input_form()
-    
-    if st.button("분석 시작"):
-        if not input_data["url"]:
-            st.warning("URL을 입력해주세요.")
-            return
-            
-        # 캐시된 결과 확인
-        results = get_cached_analysis(input_data["url"], input_data)
-        
-        if results:
-            display_analysis_results(results["analysis"], results["reels_info"])
 
 if __name__ == "__main__":
     main() 
