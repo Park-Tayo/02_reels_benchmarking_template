@@ -21,7 +21,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # 페이지 기본 설정
 st.set_page_config(
-    page_title="릴스 벤치마킹 분석",
+    page_title="✨ 릴스 벤치마킹 인사이트",
     page_icon="🎥",
     layout="centered"
 )
