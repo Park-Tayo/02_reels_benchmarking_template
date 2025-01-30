@@ -9,20 +9,13 @@ from dotenv import load_dotenv
 from api_config import get_api_config
 import requests
 import openai
+import re
 
 # .env 파일 로드
 load_dotenv()
 
 # API 설정
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-def get_api_config():
-    if not OPENAI_API_KEY:
-        raise ValueError("API 설정이 없습니다. .env 파일을 확인해주세요.")
-    
-    return {
-        "api_key": OPENAI_API_KEY
-    }
 
 # 페이지 기본 설정
 st.set_page_config(
@@ -105,17 +98,60 @@ def create_input_form():
         }
     }
 
+def clean_json_response(response_text):
+    """
+    코드 블록을 제거하고 순수한 JSON 문자열만 반환합니다.
+    """
+    # 코드 블록 제거
+    response_text = re.sub(r'```json\s*', '', response_text)
+    response_text = re.sub(r'```', '', response_text)
+    return response_text.strip()
+
 @st.cache_data(ttl=3600)
 def analyze_with_gpt4(info, input_data):
     try:
         api_config = get_api_config()
         client = openai.OpenAI(api_key=api_config["api_key"])
         
-        # API 요청 데이터 구성
         messages = [
             {
                 "role": "system",
-                "content": "릴스 분석을 수행하는 전문가입니다."
+                "content": """
+                당신은 릴스 분석 전문가입니다. 다음 형식으로 분석 결과를 제공해주세요. 각 항목에 대해 O/X를 표시하고, 그 판단의 근거가 되는 스크립트나 캡션의 구체적인 내용을 인용해주세요:
+
+                # 1. 주제:
+                - 공유 및 저장: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 모수: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 문제해결: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 욕망충족: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 흥미유발: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+
+                # 2. 초반 3초:
+                ## 카피라이팅
+                - 구체적 수치: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 뇌 충격: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 이익, 손해 강조: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 권위 강조: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+
+                ## 영상 구성
+                - 상식 파괴: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 결과 먼저: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 부정 강조: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 공감 유도: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+
+                # 3. 내용 구성:
+                - 문제해결: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 호기심 유발: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 행동 유도: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 스토리: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+                - 제안: (O/X) - 근거: "스크립트/캡션 중 해당 내용"
+
+                # 4. 개선할 점:
+                - 
+
+                # 5. 적용할 점:
+                - 
+                """
             },
             {
                 "role": "user",
@@ -124,27 +160,30 @@ def analyze_with_gpt4(info, input_data):
                 
                 스크립트: {info['transcript']}
                 캡션: {info['caption']}
-                사용자 입력: {input_data}
+                
+                사용자 입력 정보:
+                - 초반 3초 카피라이팅: {input_data['video_analysis']['intro_copy']}
+                - 초반 3초 영상 구성: {input_data['video_analysis']['intro_structure']}
+                - 나레이션: {input_data['video_analysis']['narration']}
+                - 음악: {input_data['video_analysis']['music']}
+                - 폰트: {input_data['video_analysis']['font']}
+                - 주제: {input_data['content_info']['topic']}
                 """
             }
         ]
         
-        # API 호출
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
             temperature=0,
-            max_tokens=1000
+            max_tokens=2000
         )
         
-        # 응답 처리
-        analysis_result = response.choices[0].message.content
-        
-        # 여기서 응답을 우리가 원하는 형식으로 변환
-        return format_analysis_result(analysis_result)
+        return response.choices[0].message.content.strip()
         
     except Exception as e:
-        return {"error": f"분석 중 오류 발생: {str(e)}"}
+        st.error(f"분석 중 오류 발생: {str(e)}")
+        return f"분석 중 오류 발생: {str(e)}"
 
 def display_analysis_results(results, reels_info):
     st.header("분석 결과")
@@ -163,72 +202,9 @@ def display_analysis_results(results, reels_info):
         st.markdown("**캡션**")
         st.write(reels_info["caption"])
     
-    # 3. 벤치마킹 분석
-    st.subheader("3. 벤치마킹 분석")
-    
-    # 주제 분석
-    with st.expander("주제 분석", expanded=True):
-        for category, details in results["topic_analysis"].items():
-            if details["checked"]:
-                st.markdown(f"✅ **{category}**")
-                st.markdown("관련 내용:")
-                for evidence in details["evidence"]:
-                    source_type = evidence["source"]  # "transcript" 또는 "caption"
-                    content = evidence["content"]
-                    st.markdown(f"- {source_type}: `{content}`")
-            else:
-                st.markdown(f"❌ **{category}**")
-    
-    # 초반 3초 분석
-    with st.expander("초반 3초 분석", expanded=True):
-        # 카피라이팅
-        st.markdown("**카피라이팅**")
-        for category, details in results["intro_copy_analysis"].items():
-            if details["checked"]:
-                st.markdown(f"✅ **{category}**")
-                st.markdown("관련 내용:")
-                for evidence in details["evidence"]:
-                    source_type = evidence["source"]
-                    content = evidence["content"]
-                    st.markdown(f"- {source_type}: `{content}`")
-            else:
-                st.markdown(f"❌ **{category}**")
-        
-        # 영상 구성
-        st.markdown("**영상 구성**")
-        for category, details in results["intro_structure_analysis"].items():
-            if details["checked"]:
-                st.markdown(f"✅ **{category}**")
-                st.markdown("관련 내용:")
-                for evidence in details["evidence"]:
-                    source_type = evidence["source"]
-                    content = evidence["content"]
-                    st.markdown(f"- {source_type}: `{content}`")
-            else:
-                st.markdown(f"❌ **{category}**")
-    
-    # 내용 구성 분석
-    with st.expander("내용 구성 분석", expanded=True):
-        for category, details in results["content_analysis"].items():
-            if details["checked"]:
-                st.markdown(f"✅ **{category}**")
-                st.markdown("관련 내용:")
-                for evidence in details["evidence"]:
-                    source_type = evidence["source"]
-                    content = evidence["content"]
-                    st.markdown(f"- {source_type}: `{content}`")
-            else:
-                st.markdown(f"❌ **{category}**")
-    
-    # 개선할 점
-    st.subheader("4. 개선할 점")
-    for point in results["improvements"]:
-        st.markdown(f"- {point}")
-    
-    # 적용할 점
-    st.subheader("5. 적용할 점")
-    for point in results["application_points"]:
-        st.markdown(f"- {point}")
+    # 3. GPT 분석 결과
+    st.subheader("3. 벤치마킹 템플릿 분석")
+    st.markdown(results)
 
 @st.cache_data(ttl=3600)
 def get_cached_analysis(url, input_data):

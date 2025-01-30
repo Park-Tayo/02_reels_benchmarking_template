@@ -18,7 +18,7 @@ def download_video(url):
     return None
 
 def transcribe_video(video_path):
-    model = whisper.load_model("base")
+    model = whisper.load_model("large")
     result = model.transcribe(video_path)
     return result["text"]
 
