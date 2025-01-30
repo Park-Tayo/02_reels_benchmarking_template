@@ -5,9 +5,31 @@ from datetime import datetime
 import whisper
 import requests
 import tempfile
+import os
+import subprocess
 
 # 절대 경로 설정
 BASE_DIR = Path("D:/cursor_ai/02_reels_benchmarking_template")
+
+def extract_audio(video_path, output_path):
+    try:
+        # FFmpeg 명령어로 오디오 추출
+        command = [
+            'ffmpeg',
+            '-i', video_path,  # 입력 비디오
+            '-vn',  # 비디오 스트림 제거
+            '-acodec', 'pcm_s16le',  # 오디오 코덱
+            '-ar', '16000',  # 샘플링 레이트
+            '-ac', '1',  # 모노 채널
+            '-y',  # 기존 파일 덮어쓰기
+            output_path
+        ]
+        
+        subprocess.run(command, check=True, capture_output=True)
+        return output_path
+    except Exception as e:
+        print(f"오디오 추출 실패: {e}")
+        return None
 
 def download_video(url):
     response = requests.get(url)
@@ -18,9 +40,27 @@ def download_video(url):
     return None
 
 def transcribe_video(video_path):
-    model = whisper.load_model("large")
-    result = model.transcribe(video_path)
-    return result["text"]
+    try:
+        # 임시 오디오 파일 경로 설정
+        temp_audio = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
+        
+        # 비디오에서 오디오 추출
+        audio_path = extract_audio(video_path, temp_audio)
+        if not audio_path:
+            return ""
+            
+        # Whisper 모델로 음성 인식
+        model = whisper.load_model("small")
+        result = model.transcribe(audio_path)
+        
+        # 임시 파일 삭제
+        os.remove(audio_path)
+        
+        return result["text"]
+        
+    except Exception as e:
+        print(f"전사 오류: {e}")
+        return ""
 
 def extract_reels_info(url):
     # Instaloader 인스턴스 생성
@@ -39,7 +79,9 @@ def extract_reels_info(url):
         
         # 비디오 URL과 스크립트 추출
         video_url = post.video_url
-        video_path = download_video(video_url)
+        video_path = download_video(video_url)  # 비디오 다운로드
+        
+        # 스크립트 추출 (다운로드된 비디오 파일 사용)
         transcript = transcribe_video(video_path) if video_path else ""
         
         # 임시 파일 삭제
@@ -55,11 +97,11 @@ def extract_reels_info(url):
             music_title = ''
             music_artist = ''
         
-        # 정보 추출 (새로운 순서로)
+        # 정보 추출
         info = {
             'shortcode': shortcode,
             'date': post.date.strftime('%Y-%m-%d %H:%M:%S'),
-            'transcript': transcript,
+            'transcript': transcript,  # 추출된 스크립트
             'caption': post.caption if post.caption else "",
             'view_count': post.video_view_count if hasattr(post, 'video_view_count') else 0,
             'video_duration': post.video_duration if hasattr(post, 'video_duration') else 0,
