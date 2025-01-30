@@ -186,19 +186,34 @@ def analyze_with_gpt4(info, input_data):
 
                 # 6. 벤치마킹 적용 기획:
                 {f'''
-                입력하신 주제 "{input_data["content_info"]["topic"]}"에 대한 벤치마킹 적용 기획입니다:
+                입력하신 주제 "{input_data["content_info"]["topic"]}"에 대한 벤치마킹 적용 기획입니다.
+                위에서 체크(✅)된 항목들을 모두 반영하여 벤치마킹한 내용입니다.
+                
+                [시스템 참고용 - 출력하지 말 것]
+                - 스크립트: {info['refined_transcript']}
+                - 캡션: {info['caption']}
+                
+                위 스크립트와 캡션을 최대한 유사하게 벤치마킹하여 다음과 같이 작성했습니다:
                 
                 ## 스크립트 예시:
-                위 분석 내용을 토대로 "{input_data["content_info"]["topic"]}" 주제에 맞게 작성한 스크립트입니다.
-                [스크립트 내용 작성]
+                [원본 스크립트의 문장 구조, 호흡, 강조점을 거의 그대로 활용하되 새로운 주제에 맞게 변경.
+                예를 들어 원본이 "이것 하나만 있으면 ~~" 구조라면, 새로운 주제도 동일한 구조 사용]
 
                 ## 캡션 예시:
-                "{input_data["content_info"]["topic"]}" 주제에 맞게 작성한 캡션입니다.
-                [캡션 내용 작성]
+                [원본 캡션의 구조를 거의 그대로 활용.
+                예를 들어 원본이 "✨꿀팁 공개✨" 시작이라면, 새로운 캡션도 동일한 구조 사용.
+                이모지, 해시태그 스타일도 원본과 동일하게 구성]
 
                 ## 영상 기획:
-                "{input_data["content_info"]["topic"]}" 주제의 릴스 영상 기획안입니다.
-                [영상 기획 내용 작성]
+                원본 영상의 구성을 최대한 유사하게 벤치마킹했습니다.
+                1. **도입부** (3초):
+                   [원본의 도입부 구성을 그대로 차용]
+                2. **전개**:
+                   [원본의 전개 방식을 그대로 차용]
+                3. **마무리**:
+                   [원본의 마무리 방식을 그대로 차용]
+                
+                ※ 위 기획은 체크된 항목들({체크된 항목들 나열})을 모두 반영했습니다.
                 ''' if input_data["content_info"]["topic"] else "주제가 입력되지 않았습니다. 구체적인 기획을 위해 주제를 입력해주세요."}
                 """
             },
@@ -228,7 +243,7 @@ def analyze_with_gpt4(info, input_data):
             model="gpt-4o",
             messages=messages,
             temperature=0,
-            max_tokens=2000
+            max_tokens=10000
         )
         
         return response.choices[0].message.content.strip()
