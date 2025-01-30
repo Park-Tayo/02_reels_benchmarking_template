@@ -307,27 +307,27 @@ def analyze_with_gpt4(info, input_data):
                 원본 영상의 구성을 최대한 유사하게 벤치마킹하되, 다음 요소들을 추가/보완했습니다:
 
                 1. **도입부** (3초):
-                   - 뇌 충격을 주는 구체적 수치 활용 
-                   - 상식을 깨는 내용으로 시작
-                   - 결과를 먼저 보여주는 방식 적용
+                   - 뇌 충격을 주는 구체적 수치 활용 (예시 내용)
+                   - 상식을 깨는 내용으로 시작 (예시 내용)
+                   - 결과를 먼저 보여주는 방식 적용 (예시 내용)
                    
                 2. **전개**:
                    - 문제 해결형 구조 적용:
-                     * 명확한 문제 제시 
-                     * 구체적인 해결책 제시
+                     * 명확한 문제 제시 (예시 내용)
+                     * 구체적인 해결책 제시 (예시 내용)
                    - 시청 지속성 확보:
-                     * 나레이션과 영상의 일치성 유지
-                     * 트렌디한 BGM 활용
-                     * 고화질 영상 품질 유지
+                     * 나레이션과 영상의 일치성 유지 (예시 내용)
+                     * 트렌디한 BGM 활용 (예시 내용)
+                     * 고화질 영상 품질 유지 (예시 내용)
                    
                 3. **마무리**:
                    - 행동 유도 요소 포함:
-                     * 저장/공유 유도 멘트
-                     * 팔로우 제안
+                     * 저장/공유 유도 멘트 (예시 내용)
+                     * 팔로우 제안 (예시 내용)
                    - 캡션 최적화:
-                     * 첫 줄 후킹
-                     * 단락 구분으로 가독성 확보
-                     * 구체적 수치/권위 요소 포함
+                     * 첫 줄 후킹 (예시 내용)
+                     * 단락 구분으로 가독성 확보 (예시 내용)
+                     * 구체적 수치/권위 요소 포함 (예시 내용)
                 ''' if input_data["content_info"]["topic"] else "주제가 입력되지 않았습니다. 구체적인 기획을 위해 주제를 입력해주세요."}
                 """
             },
@@ -371,12 +371,12 @@ def display_analysis_results(results, reels_info):
     
     # 1. 릴스 정보
     st.subheader("1. 릴스 정보")
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("**기본 정보**")
         st.write(f"• 업로드 날짜: {reels_info['date']}")
-        st.write(f"• 계정: @{reels_info['owner']}")
+        st.markdown(f"• 계정: <a href='https://www.instagram.com/{reels_info['owner']}' target='_blank'>@{reels_info['owner']}</a>", unsafe_allow_html=True)
         st.write(f"• 영상 길이: {reels_info['video_duration']:.1f}초")
     
     with col2:
@@ -385,9 +385,10 @@ def display_analysis_results(results, reels_info):
         st.write(f"• 좋아요: {format(reels_info['likes'], ',')}개")
         st.write(f"• 댓글: {format(reels_info['comments'], ',')}개")
     
-    st.markdown("**음악 정보**")
-    st.write(f"• 제목: {reels_info['music_title'] if reels_info.get('music_title') else '없음'}")
-    st.write(f"• 아티스트: {reels_info['music_artist'] if reels_info.get('music_artist') else '없음'}")
+    with col3:
+        st.markdown("**음악 정보**")
+        st.write(f"• 제목: {reels_info['music_title'] if reels_info.get('music_title') else '없음'}")
+        st.write(f"• 아티스트: {reels_info['music_artist'] if reels_info.get('music_artist') else '없음'}")
     
     # 2. 스크립트와 캡션
     st.subheader("2. 콘텐츠 내용")
