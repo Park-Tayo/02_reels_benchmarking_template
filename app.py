@@ -89,9 +89,13 @@ def create_input_form():
     
     # 1. 벤치마킹 섹션
     st.header("1. 벤치마킹")
-    url = st.text_input("URL 입력 후 엔터를 누르세요")
+    url = st.text_input("릴스 URL 입력 후 엔터를 누르세요")
     
-    if url:  # URL이 입력되었을 때만 표시
+    # URL 입력 버튼 추가
+    url_submit = st.button("URL 입력")
+    
+    # URL이 입력되었거나 URL 입력 버튼이 클릭되었을 때 처리
+    if url and (url_submit or True):  # True 조건은 엔터키 입력을 위한 것
         video_url = get_video_url(url)
         if video_url:
             col1, col2 = st.columns([1, 1])  # 1:1 비율로 컬럼 분할
