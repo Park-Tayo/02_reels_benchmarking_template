@@ -79,95 +79,75 @@ def transcribe_video(video_url):
         print(f"전사 오류: {e}")
         return ""
 
-@st.cache_resource
-def create_instaloader():
-    """
-    Instaloader 객체를 반환. 캐싱을 통해 재사용한다.
-    """
-    L = instaloader.Instaloader(
-        max_connection_attempts=3,
-        download_videos=False,
-        download_geotags=False,
-        download_comments=False,
-        download_pictures=False,
-        compress_json=False,
-        save_metadata=False
-    )
-    return L
-
 def check_and_refresh_credentials():
     """
-    1) 세션 파일 유효 시, 즉시 사용
-    2) 세션 파일이 없거나 만료 시, 로그인 -> 2FA 필요하면 사용자 코드 입력 대기
+    Instagram 인증을 확인하고, 유효하면 세션을 캐싱하여 재사용합니다.
     """
+    import instaloader
+    import streamlit as st
+    import os
+    from dotenv import load_dotenv
+    
+    # .env 로드
     load_dotenv()
     INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
     INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
-
+    
     if not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD:
-        st.error("Instagram 계정 정보가 설정되지 않았습니다.")
+        st.error("Instagram 사용자명 또는 비밀번호 환경변수가 설정되지 않았습니다.")
         return False
 
-    L = create_instaloader()
-    session_file = f"{INSTAGRAM_USERNAME}_instagram_session"
-
-    # 세션 파일 로드 시도
-    if os.path.exists(session_file):
+    # 캐싱된 세션 로더
+    @st.cache_resource
+    def get_instaloader_session(username):
+        L = instaloader.Instaloader(
+            max_connection_attempts=3,
+            download_videos=False,
+            download_geotags=False,
+            download_comments=False,
+            download_pictures=False,
+            compress_json=False,
+            save_metadata=False
+        )
+        
+        session_file = f"{username}_instagram_session"
+        
         try:
-            L.load_session_from_file(INSTAGRAM_USERNAME, session_file)
-            # 세션 유효성 체크 (프로필 불러오기) - 실패 시 예외 발생
-            instaloader.Profile.from_username(L.context, INSTAGRAM_USERNAME)
-            st.success("기존 세션으로 Instagram 로그인 성공")
-            return True
+            # 1) 세션 파일이 존재하면 로드 시도
+            if os.path.exists(session_file):
+                try:
+                    L.load_session_from_file(username, session_file)
+                    instaloader.Profile.from_username(L.context, username)
+                    st.success("기존 세션으로 Instagram 로그인 성공")
+                    return L
+                except:
+                    # 세션이 만료되었거나 에러 발생 시 파일 삭제
+                    try:
+                        os.remove(session_file)
+                    except:
+                        pass
+            
+            # 2) 새로 로그인 시도
+            L.login(username, INSTAGRAM_PASSWORD)
+            
+            # 3) 로그인 성공 시 세션 저장
+            L.save_session_to_file(session_file)
+            st.success("새로운 세션으로 Instagram 로그인 성공")
+            return L
+            
+        except instaloader.exceptions.BadCredentialsException:
+            st.error("로그인 실패: 잘못된 사용자 이름 또는 비밀번호")
+            return None
+        except instaloader.exceptions.ConnectionException as e:
+            st.error(f"연결 오류: {str(e)}")
+            return None
         except Exception as e:
-            st.warning(f"기존 세션이 만료되었거나 에러가 발생했습니다: {e}")
-            try:
-                os.remove(session_file)
-            except:
-                pass
-
-    # 세션 파일이 없거나 만료 → 로그인 로직
-    # 로그인 시도를 했는지 여부를 session_state로 관리
-    if "ig_login_attempted" not in st.session_state:
-        st.session_state.ig_login_attempted = False
-
-    if not st.session_state.ig_login_attempted:
-        # 아직 로그인 시도를 안 했다면 → 로그인 버튼 노출
-        if st.button("Instagram 로그인"):
-            try:
-                L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                # 로그인 성공하면 세션 파일 저장
-                L.save_session_to_file(session_file)
-                st.session_state.ig_login_attempted = True
-                st.success("Instagram 로그인 성공 (2FA 없음)")
-                return True
-            except instaloader.exceptions.TwoFactorAuthRequiredException:
-                st.session_state.ig_login_attempted = True
-                # 여기서는 곧바로 2FA 코드를 입력받도록 유도
-                st.warning("Instagram 2단계 인증이 필요합니다. 코드를 입력 후 '2FA 인증 완료' 버튼을 클릭하세요.")
-                return False
-            except Exception as e:
-                st.error(f"로그인 실패: {e}")
-                return False
-        else:
-            st.info("Instagram 계정으로 로그인하지 않은 상태입니다. 위 버튼을 눌러 로그인하세요.")
-            return False
-    else:
-        # 이미 로그인 시도를 했는데 2FA가 걸렸을 때 → 2FA 입력창 노출
-        two_factor_code = st.text_input("2FA 인증 코드(6자리)", value="", type="password")
-        if st.button("2FA 인증 완료"):
-            try:
-                # 2FA 세션 로그인 처리
-                L.two_factor_login(two_factor_code)
-                L.save_session_to_file(session_file)
-                st.success("2단계 인증 성공! 세션 파일이 저장되었습니다.")
-                return True
-            except Exception as e:
-                st.error(f"2FA 인증 오류: {e}")
-                return False
-        else:
-            st.info("2FA 인증 코드 입력 후 버튼을 눌러주세요.")
-            return False
+            st.error(f"로그인 중 예기치 못한 오류: {str(e)}")
+            return None
+    
+    # 실제 호출
+    L = get_instaloader_session(INSTAGRAM_USERNAME)
+    return True if L else False
 
 @timer_decorator
 def extract_reels_info(url, video_analysis=None):
