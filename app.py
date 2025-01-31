@@ -18,12 +18,6 @@ import base64
 # .env 파일 로드
 load_dotenv()
 
-# Secrets에서 세션 내용 불러오기
-if 'INSTAGRAM_SESSION' not in st.secrets:
-    st.error("INSTAGRAM_SESSION이 Secrets에 설정되지 않았습니다.")
-else:
-    os.environ['INSTAGRAM_SESSION'] = st.secrets["INSTAGRAM_SESSION"]
-
 # 페이지 기본 설정 - 가장 먼저 한 번만 호출
 st.set_page_config(
     page_title="✨ 릴스 벤치마킹 스튜디오",
