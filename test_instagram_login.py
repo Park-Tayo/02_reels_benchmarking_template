@@ -1,4 +1,11 @@
+# 페이지 설정을 가장 먼저 호출
 import streamlit as st
+st.set_page_config(
+    page_title="Instagram 로그인 테스트",
+    page_icon="🔒",
+    layout="centered"
+)
+
 import instaloader
 import os
 from dotenv import load_dotenv
