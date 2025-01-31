@@ -17,6 +17,25 @@ from urllib.parse import urlparse
 # .env 파일 로드
 load_dotenv()
 
+def validate_env_vars():
+    required_vars = ["OPENAI_API_KEY", "INSTAGRAM_USERNAME", "INSTAGRAM_PASSWORD"]
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    if missing_vars:
+        st.error(f"필수 환경 변수가 설정되지 않았습니다: {', '.join(missing_vars)}")
+        return False
+    return True
+
+# 페이지 기본 설정
+st.set_page_config(
+    page_title="✨ 릴스 벤치마킹 스튜디오",
+    page_icon="🎥",
+    layout="centered"
+)
+
+# 환경 변수 검증을 메인 로직 시작 전에 수행
+if not validate_env_vars():
+    st.stop()
+
 # API 설정
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
