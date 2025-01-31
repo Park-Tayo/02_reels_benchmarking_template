@@ -2,7 +2,6 @@ import instaloader
 from pathlib import Path
 import pandas as pd
 from datetime import datetime
-import whisper
 import requests
 import tempfile
 import os
@@ -16,12 +15,10 @@ from concurrent.futures import ThreadPoolExecutor
 # 절대 경로 설정
 BASE_DIR = Path("D:/cursor_ai/02_reels_benchmarking_template")
 
-# 전역 변수로 Whisper 모델 한 번만 로드
-_whisper_model = whisper.load_model("small")
-
 def get_whisper_model():
-    global _whisper_model
-    return _whisper_model
+    # 위스퍼 모델 import 제거
+    # import whisper 제거
+    return None
 
 def timer_decorator(func):
     @wraps(func)
@@ -62,11 +59,19 @@ def transcribe_video(video_url):
         if not audio_path:
             return ""
             
-        model = get_whisper_model()
-        result = model.transcribe(audio_path)
+        # OpenAI API를 사용한 음성 인식
+        api_config = get_api_config()
+        client = openai.OpenAI(api_key=api_config["api_key"])
+        
+        with open(audio_path, 'rb') as audio_file:
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                language="ko"  # 한국어 설정
+            )
         
         os.remove(audio_path)
-        return result["text"]
+        return transcript.text
         
     except Exception as e:
         print(f"전사 오류: {e}")
