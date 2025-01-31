@@ -11,15 +11,10 @@ from api_config import get_api_config
 import time
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
-import logging
-import streamlit as st
+import streamlit as st  # Streamlit 설정 추가
 
 # 절대 경로 설정
 BASE_DIR = Path("D:/cursor_ai/02_reels_benchmarking_template")
-
-# 로깅 설정
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 def get_whisper_model():
     # 위스퍼 모델 import 제거
@@ -97,16 +92,10 @@ def extract_reels_info(url, video_analysis=None):
             print("✅ Instagram 로그인 성공")
         except instaloader.exceptions.BadCredentialsException:
             print("⚠️ Instagram 로그인 실패: 잘못된 사용자 이름 또는 비밀번호")
-            return None
-        except instaloader.exceptions.TwoFactorAuthRequiredException:
-            print("⚠️ Instagram 2단계 인증이 필요합니다.")
-            return None
         except Exception as e:
             print(f"⚠️ Instagram 로그인 중 오류: {str(e)}")
-            return None
     else:
         print("⚠️ Instagram 로그인 정보가 설정되지 않았습니다.")
-        return None
     
     shortcode = url.split("/p/")[1].strip("/")
     
@@ -210,6 +199,25 @@ def download_video(url):
     """Instagram 릴스 비디오를 다운로드합니다."""
     try:
         L = instaloader.Instaloader()
+        
+        # Instagram 로그인
+        INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
+        INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
+        
+        if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
+            try:
+                L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                print("✅ Instagram 로그인 성공")
+            except instaloader.exceptions.BadCredentialsException:
+                print("⚠️ Instagram 로그인 실패: 잘못된 사용자 이름 또는 비밀번호")
+                return None
+            except Exception as e:
+                print(f"⚠️ Instagram 로그인 중 오류: {str(e)}")
+                return None
+        else:
+            print("⚠️ Instagram 로그인 정보가 설정되지 않았습니다.")
+            return None
+        
         shortcode = url.split("/p/")[1].strip("/")
         post = instaloader.Post.from_shortcode(L.context, shortcode)
         
