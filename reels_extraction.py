@@ -151,64 +151,86 @@ def check_and_refresh_credentials():
 
 @timer_decorator
 def extract_reels_info(url, video_analysis=None):
-    # 인증 정보 확인 및 갱신
-    if not check_and_refresh_credentials():
-        return None
-        
-    # Instaloader 인스턴스 생성 시 세션 파일 사용
-    L = instaloader.Instaloader(
-        max_connection_attempts=1,
-        download_videos=False,
-        download_geotags=False,
-        download_comments=False,
-        download_pictures=False,
-        compress_json=False,
-        save_metadata=False
-    )
-    
     try:
-        shortcode = url.split("/p/")[1].strip("/")
-        post = instaloader.Post.from_shortcode(L.context, shortcode)
-        video_url = post.video_url
+        # .env 로드
+        load_dotenv()
+        INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
+        INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
         
-        if not video_url:
-            st.error("이 게시물에서 비디오를 찾을 수 없습니다.")
-            return None
-            
-        # 메타데이터 추출
-        info = {
-            'shortcode': shortcode,
-            'date': post.date.strftime('%Y-%m-%d %H:%M:%S'),
-            'caption': post.caption if post.caption else "",
-            'view_count': post.video_view_count if hasattr(post, 'video_view_count') else 0,
-            'video_duration': post.video_duration if hasattr(post, 'video_duration') else 0,
-            'likes': post.likes,
-            'comments': post.comments,
-            'owner': post.owner_username,
-            'video_url': video_url
-        }
-        
-        # 트랜스크립션 수행
-        transcript = transcribe_video(video_url)
-        info['raw_transcript'] = transcript
-        
-        # 스크립트와 캡션 처리
-        processed_result = process_transcript_and_caption(
-            transcript=transcript,
-            caption=info['caption'],
-            video_analysis=video_analysis or {}
+        # Instaloader 인스턴스 생성
+        L = instaloader.Instaloader(
+            max_connection_attempts=1,
+            download_videos=False,
+            download_geotags=False,
+            download_comments=False,
+            download_pictures=False,
+            compress_json=False,
+            save_metadata=False
         )
         
-        info['refined_transcript'] = processed_result['transcript']
-        info['caption'] = processed_result['caption']
+        # 세션 파일 경로
+        session_file = f"{INSTAGRAM_USERNAME}_instagram_session"
         
-        return info
+        # 세션 파일이 있으면 삭제 (강제 재로그인)
+        if os.path.exists(session_file):
+            os.remove(session_file)
+        
+        # 새로 로그인
+        try:
+            L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+            L.save_session_to_file(session_file)
+            st.success("Instagram 로그인 성공")
+        except Exception as e:
+            st.error(f"Instagram 로그인 실패: {str(e)}")
+            return None
+        
+        try:
+            shortcode = url.split("/p/")[1].strip("/")
+            post = instaloader.Post.from_shortcode(L.context, shortcode)
+            video_url = post.video_url
             
-    except instaloader.exceptions.InstaloaderException as e:
-        st.error(f"Instagram 데이터 추출 실패: {str(e)}")
-        return None
+            if not video_url:
+                st.error("이 게시물에서 비디오를 찾을 수 없습니다.")
+                return None
+                
+            # 메타데이터 추출
+            info = {
+                'shortcode': shortcode,
+                'date': post.date.strftime('%Y-%m-%d %H:%M:%S'),
+                'caption': post.caption if post.caption else "",
+                'view_count': post.video_view_count if hasattr(post, 'video_view_count') else 0,
+                'video_duration': post.video_duration if hasattr(post, 'video_duration') else 0,
+                'likes': post.likes,
+                'comments': post.comments,
+                'owner': post.owner_username,
+                'video_url': video_url
+            }
+            
+            # 트랜스크립션 수행
+            transcript = transcribe_video(video_url)
+            info['raw_transcript'] = transcript
+            
+            # 스크립트와 캡션 처리
+            processed_result = process_transcript_and_caption(
+                transcript=transcript,
+                caption=info['caption'],
+                video_analysis=video_analysis or {}
+            )
+            
+            info['refined_transcript'] = processed_result['transcript']
+            info['caption'] = processed_result['caption']
+            
+            return info
+                
+        except instaloader.exceptions.InstaloaderException as e:
+            st.error(f"게시물 정보 가져오기 실패: {str(e)}")
+            return None
+        except Exception as e:
+            st.error(f"예상치 못한 오류: {str(e)}")
+            return None
+            
     except Exception as e:
-        st.error(f"예상치 못한 오류: {str(e)}")
+        st.error(f"처리 중 오류 발생: {str(e)}")
         return None
 
 @timer_decorator
