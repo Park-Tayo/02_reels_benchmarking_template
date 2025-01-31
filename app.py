@@ -13,6 +13,7 @@ import re
 import instaloader
 import time
 from urllib.parse import urlparse
+import logging
 
 # .env 파일 로드
 load_dotenv()
@@ -218,6 +219,10 @@ st.markdown("""
     <div class="brand-logo">HANSHIN GROUP</div>
 """, unsafe_allow_html=True)
 
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 def normalize_instagram_url(url):
     """
     입력된 인스타그램 URL을 '/p/{ID}/' 형식으로 변환합니다.
@@ -245,6 +250,13 @@ def get_video_url(url):
         normalized_url = normalize_instagram_url(url)
         # Instaloader 인스턴스 생성
         L = instaloader.Instaloader()
+        
+        # 환경 변수에서 로그인 정보 가져오기
+        INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
+        INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
+
+        L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+        L.save_session_to_file()
         
         # URL에서 숏코드 추출
         shortcode = normalized_url.split("/p/")[1].strip("/")
@@ -742,6 +754,20 @@ def get_cached_analysis(url, input_data):
     except Exception as e:
         st.error(f"처리 중 오류가 발생했습니다: {str(e)}")
         return None
+
+def get_instaloader():
+    L = instaloader.Instaloader()
+    SESSION_FILE = "session-" + os.getenv("INSTAGRAM_USERNAME")
+    
+    if os.path.exists(SESSION_FILE):
+        L.load_session_from_file(os.getenv("INSTAGRAM_USERNAME"), SESSION_FILE)
+        print("✅ 세션 로드 성공")
+    else:
+        L.login(os.getenv("INSTAGRAM_USERNAME"), os.getenv("INSTAGRAM_PASSWORD"))
+        L.save_session_to_file()
+        print("✅ 로그인 및 세션 저장 성공")
+    
+    return L
 
 def main():
     input_data = create_input_form()
