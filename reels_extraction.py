@@ -13,6 +13,7 @@ from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
 import streamlit as st  # Streamlit 설정 추가
 from dotenv import load_dotenv
+import base64
 
 # 절대 경로 설정
 BASE_DIR = Path("D:/cursor_ai/02_reels_benchmarking_template")
@@ -87,67 +88,64 @@ def check_and_refresh_credentials():
     import streamlit as st
     import os
     from dotenv import load_dotenv
-    
+    import base64
+
     # .env 로드
     load_dotenv()
     INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
     INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
+    INSTAGRAM_SESSION = os.getenv("INSTAGRAM_SESSION")
     
     if not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD:
         st.error("Instagram 사용자명 또는 비밀번호 환경변수가 설정되지 않았습니다.")
         return False
 
-    # 캐싱된 세션 로더
-    @st.cache_resource
-    def get_instaloader_session(username):
-        L = instaloader.Instaloader(
-            max_connection_attempts=3,
-            download_videos=False,
-            download_geotags=False,
-            download_comments=False,
-            download_pictures=False,
-            compress_json=False,
-            save_metadata=False
-        )
+    # 세션 파일 경로
+    session_file = f"{INSTAGRAM_USERNAME}_instagram_session"
+
+    L = instaloader.Instaloader(
+        max_connection_attempts=3,
+        download_videos=False,
+        download_geotags=False,
+        download_comments=False,
+        download_pictures=False,
+        compress_json=False,
+        save_metadata=False
+    )
+
+    try:
+        if INSTAGRAM_SESSION:
+            # Base64 인코딩된 세션을 디코딩하여 임시 파일에 저장
+            decoded_session = base64.b64decode(INSTAGRAM_SESSION)
+            with open(session_file, "wb") as f:
+                f.write(decoded_session)
+            
+            L.load_session_from_file(INSTAGRAM_USERNAME, session_file)
+            try:
+                instaloader.Profile.from_username(L.context, INSTAGRAM_USERNAME)
+                st.success("세션을 사용하여 Instagram 로그인 성공")
+                return L
+            except:
+                st.warning("세션이 유효하지 않습니다. 다시 로그인 시도합니다.")
+                os.remove(session_file)
         
-        session_file = f"{username}_instagram_session"
-        
-        try:
-            # 1) 세션 파일이 존재하면 로드 시도
-            if os.path.exists(session_file):
-                try:
-                    L.load_session_from_file(username, session_file)
-                    instaloader.Profile.from_username(L.context, username)
-                    st.success("기존 세션으로 Instagram 로그인 성공")
-                    return L
-                except:
-                    # 세션이 만료되었거나 에러 발생 시 파일 삭제
-                    try:
-                        os.remove(session_file)
-                    except:
-                        pass
-            
-            # 2) 새로 로그인 시도
-            L.login(username, INSTAGRAM_PASSWORD)
-            
-            # 3) 로그인 성공 시 세션 저장
-            L.save_session_to_file(session_file)
-            st.success("새로운 세션으로 Instagram 로그인 성공")
-            return L
-            
-        except instaloader.exceptions.BadCredentialsException:
-            st.error("로그인 실패: 잘못된 사용자 이름 또는 비밀번호")
-            return None
-        except instaloader.exceptions.ConnectionException as e:
-            st.error(f"연결 오류: {str(e)}")
-            return None
-        except Exception as e:
-            st.error(f"로그인 중 예기치 못한 오류: {str(e)}")
-            return None
-    
-    # 실제 호출
-    L = get_instaloader_session(INSTAGRAM_USERNAME)
-    return True if L else False
+        # 세션 파일이 없거나 무효한 경우 새로 로그인
+        L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+        L.save_session_to_file(session_file)
+        st.success("새로운 세션으로 Instagram 로그인 성공")
+        return L
+    except instaloader.exceptions.BadCredentialsException:
+        st.error("로그인 실패: 잘못된 사용자 이름 또는 비밀번호")
+        return None
+    except instaloader.exceptions.CheckpointException:
+        st.error("로그인 실패: 체크포인트가 필요합니다. 수동으로 인증을 완료해주세요.")
+        return None
+    except instaloader.exceptions.ConnectionException as e:
+        st.error(f"연결 오류: {str(e)}")
+        return None
+    except Exception as e:
+        st.error(f"로그인 중 예기치 못한 오류: {str(e)}")
+        return None
 
 @timer_decorator
 def extract_reels_info(url, video_analysis=None):
@@ -156,32 +154,10 @@ def extract_reels_info(url, video_analysis=None):
         load_dotenv()
         INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
         INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
+        INSTAGRAM_SESSION = os.getenv("INSTAGRAM_SESSION")
         
-        # Instaloader 인스턴스 생성
-        L = instaloader.Instaloader(
-            max_connection_attempts=1,
-            download_videos=False,
-            download_geotags=False,
-            download_comments=False,
-            download_pictures=False,
-            compress_json=False,
-            save_metadata=False
-        )
-        
-        # 세션 파일 경로
-        session_file = f"{INSTAGRAM_USERNAME}_instagram_session"
-        
-        # 세션 파일이 있으면 삭제 (강제 재로그인)
-        if os.path.exists(session_file):
-            os.remove(session_file)
-        
-        # 새로 로그인
-        try:
-            L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-            L.save_session_to_file(session_file)
-            st.success("Instagram 로그인 성공")
-        except Exception as e:
-            st.error(f"Instagram 로그인 실패: {str(e)}")
+        L = check_and_refresh_credentials()
+        if not L:
             return None
         
         try:
@@ -355,3 +331,29 @@ def download_video(url):
     except Exception as e:
         print(f"⚠️ 예상치 못한 오류: {str(e)}")
         return None
+
+def create_session_file():
+    load_dotenv()
+    INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
+    INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
+
+    if not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD:
+        print("Instagram 사용자명 또는 비밀번호 환경변수가 설정되지 않았습니다.")
+        return
+
+    L = instaloader.Instaloader()
+
+    try:
+        L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+        session_file = f"{INSTAGRAM_USERNAME}_instagram_session"
+        L.save_session_to_file(session_file)
+        print(f"세션 파일이 생성되었습니다: {session_file}")
+    except instaloader.exceptions.BadCredentialsException:
+        print("로그인 실패: 잘못된 사용자 이름 또는 비밀번호")
+    except instaloader.exceptions.InstaloaderException as e:
+        print(f"Instagram 로그인 실패: {str(e)}")
+    except Exception as e:
+        print(f"로그인 중 예기치 못한 오류: {str(e)}")
+
+if __name__ == "__main__":
+    create_session_file()
