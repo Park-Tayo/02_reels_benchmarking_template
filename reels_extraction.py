@@ -86,23 +86,32 @@ def extract_reels_info(url, video_analysis=None):
     INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
     INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
     
-    if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
-        try:
-            L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-            print("✅ Instagram 로그인 성공")
-        except instaloader.exceptions.BadCredentialsException:
-            print("⚠️ Instagram 로그인 실패: 잘못된 사용자 이름 또는 비밀번호")
-        except Exception as e:
-            print(f"⚠️ Instagram 로그인 중 오류: {str(e)}")
-    else:
-        print("⚠️ Instagram 로그인 정보가 설정되지 않았습니다.")
-    
-    shortcode = url.split("/p/")[1].strip("/")
+    if not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD:
+        st.error("Instagram 로그인 정보가 설정되지 않았습니다.")
+        return None
     
     try:
+        L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+        st.success("Instagram 로그인 성공")
+    except instaloader.exceptions.BadCredentialsException:
+        st.error("Instagram 로그인 실패: 잘못된 사용자 이름 또는 비밀번호")
+        return None
+    except instaloader.exceptions.ConnectionException:
+        st.error("Instagram 연결 실패. 잠시 후 다시 시도해주세요.")
+        return None
+    except Exception as e:
+        st.error(f"Instagram 로그인 중 오류: {str(e)}")
+        return None
+    
+    try:
+        shortcode = url.split("/p/")[1].strip("/")
         post = instaloader.Post.from_shortcode(L.context, shortcode)
         video_url = post.video_url
         
+        if not video_url:
+            st.error("이 게시물에서 비디오를 찾을 수 없습니다.")
+            return None
+            
         # 메타데이터 추출
         info = {
             'shortcode': shortcode,
@@ -116,24 +125,14 @@ def extract_reels_info(url, video_analysis=None):
             'video_url': video_url
         }
         
-        # 트랜스크립션 수행
-        transcript = transcribe_video(video_url)
-        info['raw_transcript'] = transcript
-        
-        # 스크립트와 캡션 처리
-        processed_result = process_transcript_and_caption(
-            transcript=transcript,
-            caption=info['caption'],
-            video_analysis=video_analysis or {}
-        )
-        
-        info['refined_transcript'] = processed_result['transcript']
-        info['caption'] = processed_result['caption']
-        
         return info
             
+    except instaloader.exceptions.InstaloaderException as e:
+        st.error(f"Instagram 데이터 추출 실패: {str(e)}")
+        return None
     except Exception as e:
-        return f"에러 발생: {str(e)}"
+        st.error(f"예상치 못한 오류: {str(e)}")
+        return None
 
 @timer_decorator
 def process_transcript_and_caption(transcript, caption, video_analysis):

@@ -258,6 +258,20 @@ def get_video_url(url):
         # Instaloader 인스턴스 생성
         L = instaloader.Instaloader()
         
+        # Instagram 로그인
+        INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
+        INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
+        
+        if not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD:
+            st.error("Instagram 로그인 정보가 설정되지 않았습니다.")
+            return None
+            
+        try:
+            L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+        except Exception as e:
+            st.error(f"Instagram 로그인 실패: {str(e)}")
+            return None
+        
         # URL에서 숏코드 추출
         shortcode = normalized_url.split("/p/")[1].strip("/")
         
@@ -265,9 +279,17 @@ def get_video_url(url):
         post = instaloader.Post.from_shortcode(L.context, shortcode)
         
         # 비디오 URL 반환
-        return post.video_url if post.is_video else None
+        if not post.is_video:
+            st.error("이 게시물은 비디오가 아닙니다.")
+            return None
+            
+        return post.video_url
         
+    except instaloader.exceptions.InstaloaderException as e:
+        st.error(f"Instagram 데이터 추출 실패: {str(e)}")
+        return None
     except Exception as e:
+        st.error(f"오류 발생: {str(e)}")
         return None
 
 def create_input_form():
