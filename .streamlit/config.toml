@@ -3,6 +3,3 @@ runOnSave = true
 
 [browser]
 gatherUsageStats = false
-
-[runner]
-pythonVersion = "3.11" 
