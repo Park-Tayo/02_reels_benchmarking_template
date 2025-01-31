@@ -255,8 +255,16 @@ def normalize_instagram_url(url):
 def get_video_url(url):
     try:
         normalized_url = normalize_instagram_url(url)
-        # Instaloader 인스턴스 생성
-        L = instaloader.Instaloader()
+        # Instaloader 인스턴스 생성 시 세션 파일 사용
+        L = instaloader.Instaloader(
+            max_connection_attempts=1,
+            download_videos=False,
+            download_geotags=False,
+            download_comments=False,
+            download_pictures=False,
+            compress_json=False,
+            save_metadata=False
+        )
         
         # Instagram 로그인
         INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
@@ -267,7 +275,18 @@ def get_video_url(url):
             return None
             
         try:
-            L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+            # 세션 파일 경로 설정
+            session_file = f"{INSTAGRAM_USERNAME}_instagram_session"
+            
+            # 세션 파일이 있으면 로드, 없으면 새로 로그인
+            try:
+                L.load_session_from_file(INSTAGRAM_USERNAME, session_file)
+                st.success("기존 세션으로 로그인 성공")
+            except FileNotFoundError:
+                L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                L.save_session_to_file(session_file)
+                st.success("새로운 세션으로 로그인 성공")
+                
         except Exception as e:
             st.error(f"Instagram 로그인 실패: {str(e)}")
             return None
@@ -276,18 +295,24 @@ def get_video_url(url):
         shortcode = normalized_url.split("/p/")[1].strip("/")
         
         # 게시물 정보 가져오기
-        post = instaloader.Post.from_shortcode(L.context, shortcode)
-        
-        # 비디오 URL 반환
-        if not post.is_video:
-            st.error("이 게시물은 비디오가 아닙니다.")
+        try:
+            post = instaloader.Post.from_shortcode(L.context, shortcode)
+            
+            # 비디오 URL 반환
+            if not post.is_video:
+                st.error("이 게시물은 비디오가 아닙니다.")
+                return None
+                
+            return post.video_url
+            
+        except instaloader.exceptions.InstaloaderException as e:
+            st.error(f"게시물 정보 가져오기 실패: {str(e)}")
+            # 세션 파일이 있다면 삭제하고 재시도
+            if os.path.exists(session_file):
+                os.remove(session_file)
+                st.warning("세션이 만료되어 재로그인이 필요합니다. 다시 시도해주세요.")
             return None
             
-        return post.video_url
-        
-    except instaloader.exceptions.InstaloaderException as e:
-        st.error(f"Instagram 데이터 추출 실패: {str(e)}")
-        return None
     except Exception as e:
         st.error(f"오류 발생: {str(e)}")
         return None
