@@ -12,8 +12,6 @@ import time
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
 import streamlit as st  # Streamlit 설정 추가
-from dotenv import load_dotenv
-import base64
 
 # 절대 경로 설정
 BASE_DIR = Path("D:/cursor_ai/02_reels_benchmarking_template")
@@ -80,134 +78,62 @@ def transcribe_video(video_url):
         print(f"전사 오류: {e}")
         return ""
 
-def check_and_refresh_credentials():
-    """
-    Instagram 인증을 확인하고, 유효하면 세션을 캐싱하여 재사용합니다.
-    """
-    import instaloader
-    import streamlit as st
-    import os
-    from dotenv import load_dotenv
-    import base64
-
-    # .env 로드
-    load_dotenv()
-    INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
-    INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
-    INSTAGRAM_SESSION = os.getenv("INSTAGRAM_SESSION")
-    
-    if not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD:
-        st.error("Instagram 사용자명 또는 비밀번호 환경변수가 설정되지 않았습니다.")
-        return False
-
-    # 세션 파일 경로
-    session_file = f"{INSTAGRAM_USERNAME}_instagram_session"
-
-    L = instaloader.Instaloader(
-        max_connection_attempts=3,
-        download_videos=False,
-        download_geotags=False,
-        download_comments=False,
-        download_pictures=False,
-        compress_json=False,
-        save_metadata=False
-    )
-
-    try:
-        if INSTAGRAM_SESSION:
-            # Base64 인코딩된 세션을 디코딩하여 임시 파일에 저장
-            decoded_session = base64.b64decode(INSTAGRAM_SESSION)
-            with open(session_file, "wb") as f:
-                f.write(decoded_session)
-            
-            L.load_session_from_file(INSTAGRAM_USERNAME, session_file)
-            try:
-                instaloader.Profile.from_username(L.context, INSTAGRAM_USERNAME)
-                st.success("세션을 사용하여 Instagram 로그인 성공")
-                return L
-            except:
-                st.warning("세션이 유효하지 않습니다. 다시 로그인 시도합니다.")
-                os.remove(session_file)
-        
-        # 세션 파일이 없거나 무효한 경우 새로 로그인
-        L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-        L.save_session_to_file(session_file)
-        st.success("새로운 세션으로 Instagram 로그인 성공")
-        return L
-    except instaloader.exceptions.BadCredentialsException:
-        st.error("로그인 실패: 잘못된 사용자 이름 또는 비밀번호")
-        return None
-    except instaloader.exceptions.CheckpointException:
-        st.error("로그인 실패: 체크포인트가 필요합니다. 수동으로 인증을 완료해주세요.")
-        return None
-    except instaloader.exceptions.ConnectionException as e:
-        st.error(f"연결 오류: {str(e)}")
-        return None
-    except Exception as e:
-        st.error(f"로그인 중 예기치 못한 오류: {str(e)}")
-        return None
-
 @timer_decorator
 def extract_reels_info(url, video_analysis=None):
-    try:
-        # .env 로드
-        load_dotenv()
-        INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
-        INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
-        INSTAGRAM_SESSION = os.getenv("INSTAGRAM_SESSION")
-        
-        L = check_and_refresh_credentials()
-        if not L:
-            return None
-        
+    L = instaloader.Instaloader()
+    
+    # Instagram 로그인
+    INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
+    INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
+    
+    if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
         try:
-            shortcode = url.split("/p/")[1].strip("/")
-            post = instaloader.Post.from_shortcode(L.context, shortcode)
-            video_url = post.video_url
-            
-            if not video_url:
-                st.error("이 게시물에서 비디오를 찾을 수 없습니다.")
-                return None
-                
-            # 메타데이터 추출
-            info = {
-                'shortcode': shortcode,
-                'date': post.date.strftime('%Y-%m-%d %H:%M:%S'),
-                'caption': post.caption if post.caption else "",
-                'view_count': post.video_view_count if hasattr(post, 'video_view_count') else 0,
-                'video_duration': post.video_duration if hasattr(post, 'video_duration') else 0,
-                'likes': post.likes,
-                'comments': post.comments,
-                'owner': post.owner_username,
-                'video_url': video_url
-            }
-            
-            # 트랜스크립션 수행
-            transcript = transcribe_video(video_url)
-            info['raw_transcript'] = transcript
-            
-            # 스크립트와 캡션 처리
-            processed_result = process_transcript_and_caption(
-                transcript=transcript,
-                caption=info['caption'],
-                video_analysis=video_analysis or {}
-            )
-            
-            info['refined_transcript'] = processed_result['transcript']
-            info['caption'] = processed_result['caption']
-            
-            return info
-                
-        except instaloader.exceptions.InstaloaderException as e:
-            st.error(f"게시물 정보 가져오기 실패: {str(e)}")
-            return None
+            L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+            print("✅ Instagram 로그인 성공")
+        except instaloader.exceptions.BadCredentialsException:
+            print("⚠️ Instagram 로그인 실패: 잘못된 사용자 이름 또는 비밀번호")
         except Exception as e:
-            st.error(f"예상치 못한 오류: {str(e)}")
-            return None
+            print(f"⚠️ Instagram 로그인 중 오류: {str(e)}")
+    else:
+        print("⚠️ Instagram 로그인 정보가 설정되지 않았습니다.")
+    
+    shortcode = url.split("/p/")[1].strip("/")
+    
+    try:
+        post = instaloader.Post.from_shortcode(L.context, shortcode)
+        video_url = post.video_url
+        
+        # 메타데이터 추출
+        info = {
+            'shortcode': shortcode,
+            'date': post.date.strftime('%Y-%m-%d %H:%M:%S'),
+            'caption': post.caption if post.caption else "",
+            'view_count': post.video_view_count if hasattr(post, 'video_view_count') else 0,
+            'video_duration': post.video_duration if hasattr(post, 'video_duration') else 0,
+            'likes': post.likes,
+            'comments': post.comments,
+            'owner': post.owner_username,
+            'video_url': video_url
+        }
+        
+        # 트랜스크립션 수행
+        transcript = transcribe_video(video_url)
+        info['raw_transcript'] = transcript
+        
+        # 스크립트와 캡션 처리
+        processed_result = process_transcript_and_caption(
+            transcript=transcript,
+            caption=info['caption'],
+            video_analysis=video_analysis or {}
+        )
+        
+        info['refined_transcript'] = processed_result['transcript']
+        info['caption'] = processed_result['caption']
+        
+        return info
             
     except Exception as e:
-        st.error(f"처리 중 오류 발생: {str(e)}")
-        return None
+        return f"에러 발생: {str(e)}"
 
 @timer_decorator
 def process_transcript_and_caption(transcript, caption, video_analysis):
@@ -270,22 +196,28 @@ def process_transcript_and_caption(transcript, caption, video_analysis):
 
 @timer_decorator
 def download_video(url):
-    # 인증 정보 확인 및 갱신
-    if not check_and_refresh_credentials():
-        return None
-        
-    # Instaloader 인스턴스 생성 시 세션 파일 사용
-    L = instaloader.Instaloader(
-        max_connection_attempts=1,
-        download_videos=False,
-        download_geotags=False,
-        download_comments=False,
-        download_pictures=False,
-        compress_json=False,
-        save_metadata=False
-    )
-    
+    """Instagram 릴스 비디오를 다운로드합니다."""
     try:
+        L = instaloader.Instaloader()
+        
+        # Instagram 로그인
+        INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
+        INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
+        
+        if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
+            try:
+                L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                print("✅ Instagram 로그인 성공")
+            except instaloader.exceptions.BadCredentialsException:
+                print("⚠️ Instagram 로그인 실패: 잘못된 사용자 이름 또는 비밀번호")
+                return None
+            except Exception as e:
+                print(f"⚠️ Instagram 로그인 중 오류: {str(e)}")
+                return None
+        else:
+            print("⚠️ Instagram 로그인 정보가 설정되지 않았습니다.")
+            return None
+        
         shortcode = url.split("/p/")[1].strip("/")
         post = instaloader.Post.from_shortcode(L.context, shortcode)
         
@@ -315,7 +247,7 @@ def download_video(url):
                     downloaded += len(data)
                     video_file.write(data)
                     done = int(50 * downloaded / total_size)
-                    if done % 5 == 0:
+                    if done % 5 == 0:  # 진행률 업데이트 빈도 조절
                         print(f"\r💫 다운로드 진행률: [{'=' * done}{'.' * (50-done)}] {downloaded}/{total_size} bytes", end='')
         
         print("\n✅ 비디오 다운로드 완료!")
@@ -323,37 +255,7 @@ def download_video(url):
         
     except instaloader.exceptions.InstaloaderException as e:
         print(f"⚠️ Instagram 관련 오류: {str(e)}")
-        # 세션 파일이 있다면 삭제하고 재시도
-        if os.path.exists(session_file):
-            os.remove(session_file)
-            print("⚠️ 세션이 만료되어 재로그인이 필요합니다. 다시 시도해주세요.")
         return None
     except Exception as e:
         print(f"⚠️ 예상치 못한 오류: {str(e)}")
         return None
-
-def create_session_file():
-    load_dotenv()
-    INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
-    INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
-
-    if not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD:
-        print("Instagram 사용자명 또는 비밀번호 환경변수가 설정되지 않았습니다.")
-        return
-
-    L = instaloader.Instaloader()
-
-    try:
-        L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-        session_file = f"{INSTAGRAM_USERNAME}_instagram_session"
-        L.save_session_to_file(session_file)
-        print(f"세션 파일이 생성되었습니다: {session_file}")
-    except instaloader.exceptions.BadCredentialsException:
-        print("로그인 실패: 잘못된 사용자 이름 또는 비밀번호")
-    except instaloader.exceptions.InstaloaderException as e:
-        print(f"Instagram 로그인 실패: {str(e)}")
-    except Exception as e:
-        print(f"로그인 중 예기치 못한 오류: {str(e)}")
-
-if __name__ == "__main__":
-    create_session_file()
